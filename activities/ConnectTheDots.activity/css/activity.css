@@ -1,0 +1,264 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #282828;
+}
+
+#main-toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 55px;
+    padding: 0 57px;
+    box-sizing: border-box;
+    background-color: #282828 !important;
+    z-index: 1000;
+}
+
+.toolbutton {
+    display: inline-block;
+    width: 55px;
+    height: 55px;
+    background-size: 40px;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    vertical-align: top;
+}
+
+.pull-right {
+    float: right;
+}
+
+#canvas {
+    background-color: #f4f4f6;
+    width: 100%;
+    height: calc(100vh - 55px);
+    position: absolute;
+    top: 55px;
+    left: 0;
+    overflow: hidden;
+    cursor: crosshair;
+    z-index: 1;
+}
+
+#main-canvas {
+    display: block;
+    touch-action: none;
+    /* Prevent scrolling when drawing */
+}
+
+#main-toolbar #activity-button {
+    background-image: url(../icons/activity-icon.svg);
+}
+
+#main-toolbar #color-button {
+    background-image: url(../icons/color-wheel.svg);
+}
+
+#main-toolbar #main-mode-button {
+    background-image: url(../icons/free-paint.svg);
+}
+
+#main-toolbar #draw-mode-button {
+    background-image: url(../icons/free-paint.svg);
+}
+
+#main-toolbar #number-mode-button {
+    background-image: url(../icons/challenge.svg);
+}
+
+#main-toolbar #game-mode-button {
+    background-image: url(../icons/difficulty.svg);
+}
+
+#main-toolbar #template-button {
+    background-image: url(../icons/zoom-neighborhood.svg);
+}
+
+#main-toolbar #save-template-button {
+    background-image: url(../icons/harmony.svg);
+}
+
+#main-toolbar #ai-toggle-button {
+    background-image: url(../icons/robot-off.svg);
+}
+
+#main-toolbar #ai-toggle-button.active {
+    background-image: url(../icons/robot-on.svg);
+    background-color: #808080; /* to show it is enabled */
+}
+
+#mode-palette #copy-mode-button {
+    background-image: url(../icons/copy-mode.svg);
+}
+
+#main-toolbar #network-button {
+    background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
+}
+
+#main-toolbar #stop-button {
+    background-image: url(../icons/activity-stop.svg);
+}
+
+#main-toolbar #help-button {
+    background-image: url(../icons/help.svg);
+}
+
+#main-toolbar #fullscreen-button {
+    background-image: url(../icons/view-fullscreen.svg);
+}
+
+.ctd-palette {
+    position: absolute;
+    top: 55px;
+    /* below the toolbar */
+    left: 55px;
+    /* align roughly under the color button */
+    background: #ffffff;
+    border: 2px solid #808080;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    width: 154px;
+    /* 3 swatches wide */
+    z-index: 999999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: auto;
+}
+
+.color-swatch {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    margin: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s ease;
+    pointer-events: auto;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+#game-progress-container {
+    position: absolute;
+    top: 55px;
+    left: 0;
+    width: 100%;
+    height: 16px;
+    background-color: #e0e0e0;
+    display: none; /* toggled via JS */
+    z-index: 100;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0px 0px 2px rgba(0,0,0,0.8);
+    pointer-events: none;
+}
+
+#copy-progress-container {
+    position: absolute;
+    top: 55px;
+    left: 0;
+    width: 100%;
+    height: 16px;
+    background-color: #e0e0e0;
+    display: none; /* toggled via JS */
+    z-index: 100;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0px 0px 2px rgba(0,0,0,0.8);
+    pointer-events: none;
+}
+
+#copy-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #2ecc71;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#user-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #ff8c00;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 5px;
+    transition: width 0.3s;
+    overflow: hidden;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+#ai-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #007fff;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 5px;
+    transition: width 0.3s;
+    margin-left: auto;
+    overflow: hidden;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+#private-button {
+    background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
+    width: 47px;
+    height: 47px;
+    margin: 4px 2px;
+    color: white;
+    color: transparent;
+    background-color: transparent;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    border: 0;
+    border-radius: 5.5px;
+}
+
+#shared-button {
+    background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-neighborhood.svg);
+    width: 47px;
+    height: 47px;
+    margin: 4px 2px;
+    color: white;
+    color: transparent;
+    background-color: transparent;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    border: 0;
+    border-radius: 5.5px;
+}
+
+/* Ensure Native Palettes (like PresencePalette) show above the z-index: 1 canvas! */
+.palette {
+    z-index: 9999;
+}

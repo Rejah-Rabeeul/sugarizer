@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Dot Activity</title>
+    <meta name="viewport"
+        content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, viewport-fit=cover" />
+    <link rel="stylesheet" media="not screen and (device-width: 1200px) and (device-height: 900px)"
+        href="lib/sugar-web/graphics/css/sugar-96dpi.css">
+    <link rel="stylesheet" media="screen and (device-width: 1200px) and (device-height: 900px)"
+        href="lib/sugar-web/graphics/css/sugar-200dpi.css">
+    <link rel="stylesheet" href="css/activity.css?v=2">
+    <link rel="stylesheet" href="css/libnotify.css">
+</head>
+
+<body>
+    <div id="main-toolbar" class="toolbar">
+        <button class="toolbutton" id="activity-button" title="My Activity"></button>
+        <button class="toolbutton" id="network-button" title="Network"></button>
+        <button class="toolbutton" id="color-button" title="Color"></button>
+
+        <!-- Color Palette (hidden by default) -->
+        <div id="color-palette" class="ctd-palette" style="display: none;">
+            <div class="color-swatch" style="background-color: #1a6ef5;" data-color="#1a6ef5"></div>
+            <div class="color-swatch" style="background-color: #ffffff; border: 1px solid #ccc; box-sizing: border-box;"
+                data-color="#ffffff"></div>
+            <div class="color-swatch" style="background-color: #f51a1a;" data-color="#f51a1a"></div>
+            <div class="color-swatch" style="background-color: #1af53b;" data-color="#1af53b"></div>
+            <div class="color-swatch" style="background-color: #f5d41a;" data-color="#f5d41a"></div>
+            <div class="color-swatch" style="background-color: #9c1af5;" data-color="#9c1af5"></div>
+            <div class="color-swatch" style="background-color: #1af5e3;" data-color="#1af5e3"></div>
+            <div class="color-swatch" style="background-color: #f51a9c;" data-color="#f51a9c"></div>
+            <div class="color-swatch" style="background-color: #ff8c00;" data-color="#ff8c00"></div>
+            <div class="color-swatch" style="background-color: #333333;" data-color="#333333"></div>
+        </div>
+
+        <button class="toolbutton" id="main-mode-button" title="Modes"
+            style="background-image: url(icons/free-paint.svg);"></button>
+
+        <!-- Modes Dropdown (hidden by default) -->
+        <div id="mode-palette" class="ctd-palette"
+            style="display: none; top: 55px; left: 110px; width: 175px; background-color: #282828; border-color: #282828;">
+            <button class="toolbutton" id="draw-mode-button" title="Draw Mode"></button>
+            <button class="toolbutton" id="number-mode-button" title="Number Mode"></button>
+            <button class="toolbutton" id="game-mode-button" title="Game Mode"></button>
+            <button class="toolbutton" id="copy-mode-button" title="Replicate Mode"></button>
+        </div>
+
+        <button class="toolbutton" id="template-button" title="Select Template"
+            style="background-image: url(icons/zoom-neighborhood.svg); display: none;"></button>
+
+        <!-- Template Palette (hidden by default) -->
+        <div id="template-palette" class="ctd-palette"
+            style="display: none; top: 55px; left: 165px; width: 220px; background-color: #282828; border-color: #282828;">
+            <button class="toolbutton template-swatch" data-index="0" title="Star"
+                style="background-image: url(icons/shape-star.svg);"></button>
+            <button class="toolbutton template-swatch" data-index="1" title="House"
+                style="background-image: url(icons/shape-house.svg);"></button>
+            <button class="toolbutton template-swatch" data-index="2" title="Square"
+                style="background-image: url(icons/shape-square.svg);"></button>
+            <button class="toolbutton template-swatch" data-index="3" title="Diamond"
+                style="background-image: url(icons/shape-diamond.svg);"></button>
+            <button class="toolbutton template-swatch" data-index="4" title="Hexagon"
+                style="background-image: url(icons/shape-hexagon.svg);"></button>
+        </div>
+
+        <button class="toolbutton" id="save-image-button" title="Save as Image"
+            style="background-image: url(icons/save-as-image.svg);"></button>
+
+        <button class="toolbutton" id="ai-toggle-button" title="Enable AI (Host Only)"
+            style="display: none;"></button>
+
+        <button class="toolbutton" id="undo-button" title="Undo"
+            style="background-image: url(icons/undo.svg);"></button>
+        <button class="toolbutton" id="clear-button" title="Clear Drawing"
+            style="background-image: url(icons/edit-clear.svg);"></button>
+
+        <!-- Keep all other basic functions on the right -->
+        <button class="toolbutton pull-right" id="stop-button" title="Stop"></button>
+        <button class="toolbutton pull-right" id="fullscreen-button" title="Fullscreen"></button>
+        <button class="toolbutton pull-right" id="help-button" title="Tutorial"></button>
+    </div>
+
+    <div id="game-progress-container" style="display: none;">
+        <div id="user-progress-bar">0%</div>
+        <div id="ai-progress-bar">0%</div>
+    </div>
+    <div id="copy-progress-container" style="display: none;">
+        <div id="copy-progress-bar">0%</div>
+    </div>
+    <div id="canvas">
+        <canvas id="main-canvas"></canvas>
+    </div>
+
+    <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+
+    <script src="lib/confetti.browser.min.js"></script>
+    <script data-main="js/loader" src="lib/require.js"></script>
+</body>
+
+</html>
