@@ -1,5 +1,9 @@
-define([], function () {
+define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (timerPalette, icon) {
 	var broadcastCallback = null;
+	var onFinishedCallback = null;
+	var challengeActive = false;
+	var challengeCategory = 'basic-shapes';
+	var challengeIndex = 0;
 	var dots = [];
 	var isDrawing = false;
 	var currentDrawing = null;
@@ -15,6 +19,19 @@ define([], function () {
 	var currentCategoryKey = 'basic-shapes';
 	var isCreatingFigure = false;
 	var activeDrawingIndex = -1;
+	// Challenge and Leaderboard state
+	var challengeDuration = 0;
+	var challengeRemaining = 0;
+	var challengeInterval = null;
+	var challengeScores = [];
+	var currentChallengeScore = 0;
+	var completedFigures = [];
+	
+	// Network state
+	var presence = null;
+	var isHost = false;
+	var timerPal = null;
+
 
 	function triggerConfetti() {
 		if (typeof confetti === 'function') {
@@ -141,9 +158,52 @@ define([], function () {
 	}
 
 	var NumberMode = {
-		init: function (dotsArray, callback) {
+		init: function (dotsArray, callback, fillColor) {
 			dots = dotsArray || [];
 			broadcastCallback = callback;
+		},
+		setEnvironment: function(envObj) {
+			NumberMode.currentenv = envObj;
+		},
+		onChallengeStarted: function(duration, skipInit) {
+			challengeActive = true;
+			NumberMode.setView('play', true);
+			
+			var btnsToDisable = ['library-button', 'timer-button', 'mode-button', 'view-button', 'create-category-button'];
+			for (var i=0; i<btnsToDisable.length; i++) {
+				var b = document.getElementById(btnsToDisable[i]);
+				if (b) b.disabled = true;
+			}
+			
+			if (!skipInit) {
+				challengeCategory = 'basic-shapes';
+				challengeIndex = 0;
+				var d = libraries[challengeCategory][challengeIndex];
+				if (d) {
+					NumberMode.selectDrawing(d, challengeIndex, true);
+				}
+				broadcastUpdate();
+			}
+		},
+		nextChallengeFigure: function() {
+			if (!challengeActive) return;
+			challengeIndex++;
+			if (libraries[challengeCategory] && challengeIndex >= libraries[challengeCategory].length) {
+				challengeCategory = (challengeCategory === 'basic-shapes') ? 'objects' : 'basic-shapes';
+				challengeIndex = 0;
+			}
+			if (libraries[challengeCategory] && libraries[challengeCategory].length > 0) {
+				NumberMode.selectDrawing(libraries[challengeCategory][challengeIndex], challengeIndex);
+			}
+		},
+		onChallengeStopped: function() {
+			challengeActive = false;
+			
+			var btnsToDisable = ['library-button', 'timer-button', 'mode-button', 'view-button', 'create-category-button'];
+			for (var i=0; i<btnsToDisable.length; i++) {
+				var b = document.getElementById(btnsToDisable[i]);
+				if (b) b.disabled = false;
+			}
 		},
 		getView: function () {
 			return view;
@@ -261,9 +321,8 @@ define([], function () {
 			var uniqueCats = [];
 			for (var i = 0; i < cats.length; i++) {
 				var k = cats[i].key;
-				if (!seen[k] && !seen[cats[i].name.toLowerCase()]) {
+				if (!seen[k]) {
 					seen[k] = true;
-					seen[cats[i].name.toLowerCase()] = true;
 					uniqueCats.push(cats[i]);
 				}
 			}
@@ -390,7 +449,10 @@ define([], function () {
 				inputEl.onpropertychange = validateInput;
 
 				confirmBtn.onclick = function (e) {
-					if (e) e.stopPropagation();
+					if (e) {
+						e.stopPropagation();
+						e.preventDefault();
+					}
 					if (confirmBtn.disabled) return;
 					var catName = inputEl.value.trim();
 					if (!catName) return;
@@ -624,45 +686,16 @@ define([], function () {
 				var inner = document.createElement('div');
 				inner.className = 'gallery-card-inner';
 
-				var minCol = 15, maxCol = 0, minRow = 13, maxRow = 0;
-				if (drawing && drawing.points) {
-					drawing.points.forEach(function (pt) {
-						if (pt[0] < minCol) minCol = pt[0];
-						if (pt[0] > maxCol) maxCol = pt[0];
-						if (pt[1] < minRow) minRow = pt[1];
-						if (pt[1] > maxRow) maxRow = pt[1];
-					});
+				var svg = NumberMode.createFigureThumbnail(drawing, buddyFillColor, buddyStrokeColor);
+				if (svg) {
+					svg.style.maxHeight = "205px";
+					inner.appendChild(svg);
 				}
 
-				var vBoxW = (maxCol - minCol) + 2, vBoxH = (maxRow - minRow) + 2;
-
-				var svgNS = "http://www.w3.org/2000/svg";
-				var svg = document.createElementNS(svgNS, "svg");
-				svg.setAttribute("viewBox", (minCol - 1) + " " + (minRow - 1) + " " + vBoxW + " " + vBoxH);
-				svg.style.width = "82%";
-				svg.style.height = "82%";
-				svg.style.maxHeight = "205px";
-
-				if (drawing && drawing.points && drawing.points.length > 0) {
-					var shapeEl = document.createElementNS(svgNS, drawing.closed ? "polygon" : "polyline");
-					var attrs = {
-						points: drawing.points.map(function (pt) { return pt[0] + "," + pt[1]; }).join(" "),
-						fill: drawing.closed ? (buddyFillColor || drawing.fillColor || "#ffcccc") : "none",
-						stroke: buddyStrokeColor || drawing.strokeColor || "#cc0000",
-						"stroke-width": Math.max(vBoxW, vBoxH) * 0.06,
-						"stroke-linecap": "round",
-						"stroke-linejoin": "round"
-					};
-					for (var k in attrs) shapeEl.setAttribute(k, attrs[k]);
-					svg.appendChild(shapeEl);
-				}
-
-				inner.appendChild(svg);
 				card.appendChild(inner);
 
 				card.addEventListener('click', function () {
 					if (view === 'setting') return;
-					gallery.style.display = 'none';
 					NumberMode.selectDrawing(drawing, index);
 				});
 
@@ -696,7 +729,7 @@ define([], function () {
 				broadcastUpdate();
 			}
 		},
-		selectDrawing: function (drawing, index) {
+		selectDrawing: function (drawing, index, skipBroadcast) {
 			activeDrawingIndex = (index !== undefined) ? index : -1;
 			var gridCanvas = document.getElementById('gridCanvas');
 			if (gridCanvas) gridCanvas.style.display = '';
@@ -706,6 +739,9 @@ define([], function () {
 			currentStep = 0;
 			userStrokes = [];
 			isFinished = false;
+			if (challengeActive) {
+				NumberMode.figureStartTime = Date.now();
+			}
 			for (var i = 0; i < dots.length; i++) {
 				dots[i].insideClosedFigure = null;
 			}
@@ -716,7 +752,9 @@ define([], function () {
 					NumberMode.backToGallery();
 				};
 			}
-			broadcastUpdate();
+			var gallery = document.getElementById('library-gallery');
+			if (gallery) gallery.style.display = 'none';
+			if (!skipBroadcast) broadcastUpdate();
 		},
 		onMouseDown: function (mouseX, mouseY) {
 			isDrawing = true;
@@ -820,6 +858,13 @@ define([], function () {
 						currentDrawing.fillProgress = 1500;
 						if (!isCreatingFigure) {
 							triggerConfetti();
+							var timeTaken = 0;
+							if (NumberMode.figureStartTime) {
+								timeTaken = Math.round((Date.now() - NumberMode.figureStartTime) / 1000);
+							}
+							setTimeout(function() {
+								NumberMode.reportChallengeFinish(currentDrawing, timeTaken);
+							}, 1000);
 						}
 					}
 				}
@@ -1138,8 +1183,8 @@ define([], function () {
 
 			var elMode = document.getElementById('mode-button'); if (elMode) elMode.style.display = '';
 			var elNet = document.getElementById('network-button'); if (elNet) elNet.style.display = '';
+			var elView = document.getElementById('view-button'); if (elView) elView.style.display = presence ? 'none' : '';
 			var elLib = document.getElementById('library-button'); if (elLib) elLib.style.display = '';
-			var elView = document.getElementById('view-button'); if (elView) elView.style.display = '';
 			var elFull = document.getElementById('fullscreen-button'); if (elFull) elFull.style.display = '';
 			var elHelp = document.getElementById('help-button'); if (elHelp) elHelp.style.display = '';
 
@@ -1228,12 +1273,14 @@ define([], function () {
 				isCreatingFigure: isCreatingFigure,
 				activeDrawingIndex: activeDrawingIndex,
 				currentCategoryKey: currentCategoryKey,
+				challengeCategory: challengeCategory,
+				challengeIndex: challengeIndex,
 				view: view,
 				libraries: libraries,
 				categoryNames: categoryNames
 			};
 		},
-		deserialize: function (data) {
+		deserialize: function (data, isNetworkInit) {
 			
 			if (!data) return;
 			if (data.libraries) {
@@ -1245,11 +1292,36 @@ define([], function () {
 			if (data.currentCategoryKey) {
 				currentCategoryKey = data.currentCategoryKey;
 			}
+			if (data.challengeCategory) {
+				challengeCategory = data.challengeCategory;
+			} else if (data.currentCategoryKey) {
+				challengeCategory = data.currentCategoryKey;
+			}
+
+			if (isNetworkInit) {
+				if (libraries && libraries[currentCategoryKey] && libraries[currentCategoryKey].length > 0) {
+					NumberMode.selectDrawing(libraries[currentCategoryKey][0], 0, true);
+				}
+				if (data.view && data.view !== view) {
+					if (!(data.view === 'leaderboard' && challengeActive)) {
+						NumberMode.setView(data.view, true);
+					}
+				}
+				return;
+			}
+
 			if (data.activeDrawingIndex !== undefined) {
 				activeDrawingIndex = data.activeDrawingIndex;
 			}
+			if (data.challengeIndex !== undefined) {
+				challengeIndex = data.challengeIndex;
+			} else if (data.activeDrawingIndex !== undefined) {
+				challengeIndex = data.activeDrawingIndex;
+			}
 			if (data.view && data.view !== view) {
-				NumberMode.setView(data.view, true);
+				if (!(data.view === 'leaderboard' && challengeActive)) {
+					NumberMode.setView(data.view, true);
+				}
 			}
 			isCreatingFigure = !!data.isCreatingFigure;
 
@@ -1305,7 +1377,13 @@ define([], function () {
 						};
 					}
 				} else {
-					var idsToShow = ['mode-button', 'network-button', 'library-button', 'view-button'];
+					var idsToShow = ['network-button'];
+					if (!presence || isHost) {
+						idsToShow.push('mode-button');
+						idsToShow.push('library-button');
+					}
+					if (!presence) idsToShow.push('view-button');
+					else if (isHost) idsToShow.push('timer-button');
 					for (var i = 0; i < idsToShow.length; i++) {
 						var el = document.getElementById(idsToShow[i]);
 						if (el) el.style.display = '';
@@ -1363,7 +1441,13 @@ define([], function () {
 				if (minusBtn) minusBtn.style.display = 'none';
 
 				if (!isCreatingFigure) {
-					var idsToShow = ['mode-button', 'network-button', 'library-button', 'view-button'];
+					var idsToShow = ['network-button'];
+					if (!presence || isHost) {
+						idsToShow.push('mode-button');
+						idsToShow.push('library-button');
+					}
+					if (!presence) idsToShow.push('view-button');
+					else if (isHost) idsToShow.push('timer-button');
 					for (var i = 0; i < idsToShow.length; i++) {
 						var el = document.getElementById(idsToShow[i]);
 						if (el) el.style.display = '';
@@ -1376,6 +1460,547 @@ define([], function () {
 				if (gallery) {
 					NumberMode.showGallery(currentCategoryKey, l10nRef, true);
 				}
+			}
+		},
+		createFigureThumbnail: function (drawing, fill, stroke) {
+			var minCol = 15, maxCol = 0, minRow = 13, maxRow = 0;
+			if (drawing && drawing.points) {
+				drawing.points.forEach(function (pt) {
+					if (pt[0] < minCol) minCol = pt[0];
+					if (pt[0] > maxCol) maxCol = pt[0];
+					if (pt[1] < minRow) minRow = pt[1];
+					if (pt[1] > maxRow) maxRow = pt[1];
+				});
+			}
+
+			var vBoxW = (maxCol - minCol) + 2, vBoxH = (maxRow - minRow) + 2;
+			var svgNS = "http://www.w3.org/2000/svg";
+			var svg = document.createElementNS(svgNS, "svg");
+			svg.setAttribute("viewBox", (minCol - 1) + " " + (minRow - 1) + " " + vBoxW + " " + vBoxH);
+			svg.style.width = "82%";
+			svg.style.height = "82%";
+
+			if (drawing && drawing.points && drawing.points.length > 0) {
+				var shapeEl = document.createElementNS(svgNS, drawing.closed ? "polygon" : "polyline");
+				var attrs = {
+					points: drawing.points.map(function (pt) { return pt[0] + "," + pt[1]; }).join(" "),
+					fill: drawing.closed ? (fill || drawing.fillColor || "#ffcccc") : "none",
+					stroke: stroke || drawing.strokeColor || "#cc0000",
+					"stroke-width": Math.max(vBoxW, vBoxH) * 0.06,
+					"stroke-linecap": "round",
+					"stroke-linejoin": "round"
+				};
+				for (var k in attrs) shapeEl.setAttribute(k, attrs[k]);
+				svg.appendChild(shapeEl);
+			}
+			return svg;
+		},
+		initNetwork: function(presenceObj, hostFlag, activityObj) {
+			presence = presenceObj;
+			isHost = hostFlag;
+			NumberMode.activity = activityObj;
+			if (presence) {
+				var viewBtn = document.getElementById('view-button');
+				if (viewBtn) viewBtn.style.display = 'none';
+				var createCatBtn = document.getElementById('create-category-button');
+				if (createCatBtn) createCatBtn.style.display = 'none';
+				if (!isHost) {
+					var modeBtn = document.getElementById('mode-button');
+					if (modeBtn) modeBtn.style.display = 'none';
+					var libBtn = document.getElementById('library-button');
+					if (libBtn) libBtn.style.display = 'none';
+				}
+				var timerBtn = document.getElementById('timer-button');
+				if (timerBtn && isHost) timerBtn.style.display = '';
+				if (view === 'setting') {
+					NumberMode.setView('play', true);
+				}
+			}
+		},
+		activate: function() {
+			var idsToShow = [];
+			if (!presence || isHost) {
+				idsToShow.push('library-button');
+			}
+			if (!presence) idsToShow.push('view-button');
+			else if (isHost) idsToShow.push('timer-button');
+			for (var i = 0; i < idsToShow.length; i++) {
+				var el = document.getElementById(idsToShow[i]);
+				if (el) el.style.display = '';
+			}
+			var createCatBtn = document.getElementById('create-category-button');
+			if (createCatBtn) createCatBtn.style.display = (view === 'setting') ? '' : 'none';
+			
+			if (!timerPal) {
+				var timerButton = document.getElementById("timer-button");
+				if (timerButton) {
+					timerPal = new timerPalette.TimerPalette(timerButton, undefined);
+					timerPal.addEventListener('timer-selected', function(e) {
+						var durations = [60, 120, 300];
+						var duration = durations[e.index];
+						if (presence) {
+							presence.sendMessage(presence.getSharedInfo().id, {
+								user: presence.getUserInfo(),
+								content: {
+									action: 'timer-selected',
+									duration: duration
+								}
+							});
+						}
+						NumberMode.startChallenge(duration, false);
+					});
+				}
+				var btnSeeLeaderboard = document.getElementById('btn-see-leaderboard');
+				if (btnSeeLeaderboard) {
+					btnSeeLeaderboard.addEventListener('click', function() {
+						NumberMode.showLeaderboard(true);
+					});
+				}
+				var btnRestart = document.getElementById('btn-restart-challenge');
+				if (btnRestart) {
+					btnRestart.addEventListener('click', function() {
+						if (presence) {
+							presence.sendMessage(presence.getSharedInfo().id, {
+								user: presence.getUserInfo(),
+								content: {
+									action: 'restart-challenge'
+								}
+							});
+						}
+						NumberMode.startChallenge(challengeDuration, false);
+					});
+				}
+			}
+		},
+		deactivate: function() {
+			var idsToHide = ['library-button', 'view-button', 'create-category-button', 'timer-button'];
+			for (var i = 0; i < idsToHide.length; i++) {
+				var el = document.getElementById(idsToHide[i]);
+				if (el) el.style.display = 'none';
+			}
+		},
+		getSharedState: function() {
+			return {
+				challengeActive: challengeActive,
+				challengeRemaining: challengeRemaining,
+				challengeDuration: typeof challengeDuration !== 'undefined' ? challengeDuration : 120,
+				challengeScores: challengeScores,
+				currentChallengeScore: currentChallengeScore,
+				completedFigures: completedFigures
+			};
+		},
+		setChallengeScores: function(scores) {
+			challengeScores = scores;
+		},
+		setCurrentChallengeScore: function(score) {
+			currentChallengeScore = score;
+		},
+		setCompletedFigures: function(figures) {
+			completedFigures = figures || [];
+		},
+		handleNetworkMessage: function(msg) {
+			switch (msg.content.action) {
+				case 'timer-selected':
+					if (msg.content.duration === 0) {
+						NumberMode.stopChallenge();
+					} else {
+						NumberMode.startChallenge(msg.content.duration, false);
+					}
+					break;
+				case 'finish-challenge':
+					var found = false;
+					for (var i = 0; i < challengeScores.length; i++) {
+						if (challengeScores[i].user.networkId === msg.user.networkId) {
+							challengeScores[i].score = Math.max(challengeScores[i].score, msg.content.score);
+							found = true; break;
+						}
+					}
+					if (!found) {
+						challengeScores.push({ user: msg.user, score: msg.content.score });
+					}
+					if (!challengeActive) {
+						NumberMode.showLeaderboard(false);
+					}
+					break;
+				case 'figure-completed':
+					if (!challengeActive) return;
+					var found = false;
+					for (var i = 0; i < challengeScores.length; i++) {
+						if (challengeScores[i].user.networkId === msg.user.networkId) {
+							challengeScores[i].score += msg.content.score;
+							found = true; break;
+						}
+					}
+					if (!found) {
+						challengeScores.push({ user: msg.user, score: msg.content.score });
+					}
+					var endScreen = document.getElementById('end-screen');
+					if (endScreen && endScreen.style.display !== 'none') {
+						NumberMode.showLeaderboard(false);
+					}
+					var screen = document.getElementById('leaderboard-screen');
+					if (screen && screen.style.display !== 'none') {
+						NumberMode.showLeaderboard(true);
+					}
+					break;
+				case 'restart-challenge':
+					NumberMode.startChallenge(challengeDuration, false);
+					break;
+			}
+		},
+		formatTime: function(secs) {
+			var m = Math.floor(secs / 60);
+			var s = secs % 60;
+			if (m < 10) m = "0" + m;
+			if (s < 10) s = "0" + s;
+			return m + ":" + s;
+		},
+		updateTimerDisplay: function() {
+			var d = document.getElementById('timer-display');
+			if (d) d.textContent = NumberMode.formatTime(challengeRemaining) + " | Score: " + currentChallengeScore;
+		},
+		startChallenge: function(duration, skipInit) {
+			challengeDuration = duration;
+			if (duration === 0) {
+				NumberMode.stopChallenge();
+				return;
+			}
+			challengeRemaining = duration;
+			challengeScores = [];
+			currentChallengeScore = 0;
+			completedFigures = [];
+			
+			var btnSeeLeaderboard = document.getElementById('btn-see-leaderboard');
+			if (btnSeeLeaderboard) btnSeeLeaderboard.style.display = 'none';
+			var btnRestart = document.getElementById('btn-restart-challenge');
+			if (btnRestart) btnRestart.style.display = 'none';
+			
+			var endScreen = document.getElementById('end-screen');
+			if (endScreen) endScreen.style.display = 'none';
+			var ldScreen = document.getElementById('leaderboard-screen');
+			if (ldScreen) ldScreen.style.display = 'none';
+			
+			var display = document.getElementById('timer-display');
+			if (display) display.style.display = 'block';
+			NumberMode.updateTimerDisplay();
+			
+			if (challengeInterval) clearInterval(challengeInterval);
+			challengeInterval = setInterval(function() {
+				challengeRemaining--;
+				if (challengeRemaining < 0) challengeRemaining = 0;
+				NumberMode.updateTimerDisplay();
+				if (challengeRemaining <= 0) {
+					clearInterval(challengeInterval);
+					challengeRemaining = 0;
+					NumberMode.endChallenge();
+				}
+			}, 1000);
+			
+			NumberMode.onChallengeStarted(duration, skipInit);
+		},
+		stopChallenge: function() {
+			challengeRemaining = 0;
+			if (challengeInterval) clearInterval(challengeInterval);
+			var display = document.getElementById('timer-display');
+			if (display) display.style.display = 'none';
+			
+			NumberMode.onChallengeStopped();
+		},
+		endChallenge: function() {
+			NumberMode.stopChallenge();
+			NumberMode.reportChallengeFinish(true);
+		},
+		reportChallengeFinish: function(drawing, timeTaken) {
+			if (!challengeActive && drawing !== true) return;
+			
+			if (drawing !== true) {
+				var figScore = 10;
+				currentChallengeScore += figScore;
+				
+				completedFigures.push({
+					drawing: drawing,
+					timeTaken: timeTaken,
+					score: figScore
+				});
+				
+				NumberMode.updateTimerDisplay();
+				NumberMode.nextChallengeFigure();
+				return;
+			}
+			
+			var myScore = currentChallengeScore;
+			if (challengeInterval) clearInterval(challengeInterval);
+			
+			var user = {networkId: 'local', name: 'Local'};
+			if (presence) user = presence.getUserInfo();
+			
+			var found = false;
+			for (var i = 0; i < challengeScores.length; i++) {
+				if (challengeScores[i].user.networkId === user.networkId) {
+					challengeScores[i].score = Math.max(challengeScores[i].score, myScore);
+					found = true; break;
+				}
+			}
+			if (!found) {
+				challengeScores.push({ user: user, score: myScore });
+			}
+			
+			if (presence) {
+				presence.sendMessage(presence.getSharedInfo().id, {
+					user: presence.getUserInfo(),
+					content: {
+						action: 'finish-challenge',
+						score: myScore
+					}
+				});
+			}
+			NumberMode.showLeaderboard(false);
+		},
+		showLeaderboard: function(justLeaderboardPopup) {
+			var localUser = {networkId: 'local', name: 'Local', colorvalue: {stroke: buddyStrokeColor, fill: buddyFillColor}};
+			if (presence) localUser = presence.getUserInfo();
+			
+			var processUsers = function(users) {
+				var userMap = {};
+				if (users) {
+					for (var i = 0; i < users.length; i++) {
+						userMap[users[i].networkId] = users[i];
+					}
+				}
+				userMap[localUser.networkId] = localUser;
+				for (var i = 0; i < challengeScores.length; i++) {
+					userMap[challengeScores[i].user.networkId] = challengeScores[i].user;
+				}
+				var allUsers = [];
+				for (var key in userMap) {
+					allUsers.push(userMap[key]);
+				}
+				NumberMode.renderLeaderboard(allUsers, justLeaderboardPopup);
+			};
+
+			if (presence && typeof presence.listSharedActivityUsers === 'function') {
+				presence.listSharedActivityUsers(presence.getSharedInfo().id, function(users) {
+					processUsers(users);
+				});
+			} else {
+				processUsers([]);
+			}
+		},
+		renderLeaderboard: function(allUsers, justLeaderboardPopup) {
+			var board = [];
+			for (var i = 0; i < allUsers.length; i++) {
+				var u = allUsers[i];
+				var sc = 0;
+				var hasFinished = false;
+				for (var j = 0; j < challengeScores.length; j++) {
+					if (challengeScores[j].user.networkId === u.networkId) {
+						sc = challengeScores[j].score;
+						hasFinished = true;
+						break;
+					}
+				}
+				board.push({ user: u, score: sc, finished: hasFinished });
+			}
+			board.sort(function(a, b) { return b.score - a.score; });
+			
+			var body = document.getElementById('leaderboard-body');
+			if (body) {
+				body.innerHTML = '';
+				for (var i = 0; i < board.length; i++) {
+					var item = board[i];
+					var row = document.createElement('div');
+					row.className = 'leaderboard-panel-container';
+					if (item.user.colorvalue) {
+						row.style.borderColor = item.user.colorvalue.stroke;
+					}
+					var rank = document.createElement('div');
+					rank.className = 'leaderboard-item';
+					rank.style.width = '25%';
+					rank.textContent = (i + 1);
+					
+					var userDiv = document.createElement('div');
+					userDiv.className = 'leaderboard-item';
+					userDiv.style.width = '50%';
+					
+					var iconEl = document.createElement('div');
+					iconEl.className = 'leaderboard-item-icon';
+					iconEl.style.width = '100px';
+					iconEl.style.height = '100px';
+					iconEl.style.flexShrink = '0';
+					iconEl.style.marginRight = '20px';
+					
+					var colorval = item.user.colorvalue || item.user.color;
+					if (colorval && icon && typeof icon.load === 'function') {
+						iconEl.style.backgroundRepeat = 'no-repeat';
+						iconEl.style.backgroundPosition = 'center';
+						iconEl.style.backgroundSize = 'contain';
+						(function(el) {
+							icon.load({
+								uri: 'icons/owner-icon.svg',
+								fillColor: colorval.fill,
+								strokeColor: colorval.stroke
+							}, function(url) {
+								el.style.backgroundImage = "url('" + url + "')";
+							});
+						})(iconEl);
+					} else {
+						iconEl.style.backgroundImage = 'url(icons/owner-icon.svg)';
+						iconEl.style.backgroundRepeat = 'no-repeat';
+						iconEl.style.backgroundPosition = 'center';
+						iconEl.style.backgroundSize = 'contain';
+					}
+					
+					var name = document.createElement('div');
+					name.textContent = item.user.name || "Unknown";
+					
+					userDiv.appendChild(iconEl);
+					userDiv.appendChild(name);
+					
+					var score = document.createElement('div');
+					score.className = 'leaderboard-item';
+					score.style.width = '25%';
+					
+					if (item.finished) {
+						score.textContent = item.score;
+					} else {
+						var hourglass = document.createElement('img');
+						hourglass.src = 'icons/hourglass.svg';
+						hourglass.style.width = '80px';
+						hourglass.style.height = '80px';
+						score.appendChild(hourglass);
+					}
+					
+					row.appendChild(rank);
+					row.appendChild(userDiv);
+					row.appendChild(score);
+					body.appendChild(row);
+				}
+			}
+			
+			if (l10nRef && l10nRef.get) {
+				var ldHeader = document.getElementById('leaderboard-header');
+				if (ldHeader) {
+					// Could use l10n to translate "Leaderboard"
+				}
+			}
+			var currentenv = NumberMode.currentenv;
+			if (currentenv && currentenv.user && currentenv.user.colorvalue) {
+				var stroke = currentenv.user.colorvalue.stroke;
+				var fill = currentenv.user.colorvalue.fill;
+				var endScreen = document.getElementById('end-screen');
+				if (endScreen) endScreen.style.backgroundColor = stroke;
+				var ldScreen = document.getElementById('leaderboard-screen');
+				if (ldScreen) ldScreen.style.backgroundColor = stroke;
+				var ldHeader = document.getElementById('leaderboard-header');
+				if (ldHeader) {
+					ldHeader.style.backgroundColor = fill;
+					ldHeader.style.border = "2px solid black";
+					ldHeader.style.color = "black";
+					ldHeader.style.borderRadius = "0px";
+				}
+				
+				var btnSee = document.getElementById('btn-see-leaderboard');
+				if (btnSee) btnSee.style.backgroundColor = fill;
+				var btnRestart = document.getElementById('btn-restart-challenge');
+				if (btnRestart) btnRestart.style.backgroundColor = fill;
+				
+				var timeBox = document.getElementById('end-total-time');
+				if (timeBox) {
+					timeBox.style.backgroundColor = fill;
+					timeBox.textContent = "Total Time: " + (Math.floor(challengeDuration / 60) < 10 ? '0' : '') + Math.floor(challengeDuration / 60) + ":" + (challengeDuration % 60 < 10 ? '0' : '') + (challengeDuration % 60);
+				}
+				
+				var scoreBox = document.getElementById('end-total-score');
+				if (scoreBox) {
+					scoreBox.style.backgroundColor = fill;
+					var totalScore = 0;
+					for (var j = 0; j < challengeScores.length; j++) {
+						if (challengeScores[j].user.networkId === currentenv.user.networkId) {
+							totalScore = challengeScores[j].score;
+							break;
+						}
+					}
+					var sumScore = 0;
+					for (var f = 0; f < completedFigures.length; f++) {
+						sumScore += completedFigures[f].score;
+					}
+					if (sumScore > totalScore) totalScore = sumScore;
+					
+					scoreBox.textContent = "Total Score: " + totalScore;
+				}
+			}
+			
+			var completedFiguresGrid = document.getElementById('completed-figures-grid');
+			if (completedFiguresGrid) {
+				completedFiguresGrid.innerHTML = '';
+				if (completedFigures.length > 0) {
+					completedFiguresGrid.style.display = 'flex';
+					
+					for (var f = 0; f < completedFigures.length; f++) {
+						var fig = completedFigures[f];
+						var card = document.createElement('div');
+						card.className = 'completed-figure-card';
+						if (currentenv && currentenv.user && currentenv.user.colorvalue) {
+							card.style.borderColor = currentenv.user.colorvalue.fill;
+						}
+						
+						var thumbCont = document.createElement('div');
+						thumbCont.className = 'card-thumbnail';
+						var fill = currentenv && currentenv.user && currentenv.user.colorvalue ? currentenv.user.colorvalue.fill : '#ffcccc';
+						var stroke = currentenv && currentenv.user && currentenv.user.colorvalue ? currentenv.user.colorvalue.stroke : '#cc0000';
+						var svg = NumberMode.createFigureThumbnail(fig.drawing, fill, stroke);
+						if (svg) {
+							thumbCont.appendChild(svg);
+						}
+						
+						var header = document.createElement('div');
+						header.className = 'card-header';
+						
+						var timeDiv = document.createElement('div');
+						timeDiv.className = 'card-time';
+						var clockIcon = document.createElement('div');
+						clockIcon.className = 'card-clock-icon';
+						var timeStr = Math.floor(fig.timeTaken / 60) + ":" + (fig.timeTaken % 60 < 10 ? '0' : '') + (fig.timeTaken % 60);
+						var timeText = document.createElement('span');
+						timeText.className = 'card-time-text';
+						timeText.textContent = timeStr;
+						timeDiv.appendChild(clockIcon);
+						timeDiv.appendChild(timeText);
+						
+						var scoreDiv = document.createElement('div');
+						scoreDiv.className = 'card-score';
+						scoreDiv.textContent = "Score: " + fig.score;
+						
+						header.appendChild(timeDiv);
+						header.appendChild(scoreDiv);
+						
+						card.appendChild(header);
+						card.appendChild(thumbCont);
+						completedFiguresGrid.appendChild(card);
+					}
+				} else {
+					completedFiguresGrid.style.display = 'none';
+				}
+			}
+
+			if (justLeaderboardPopup) {
+				var ldScreen = document.getElementById('leaderboard-screen');
+				if (ldScreen) {
+					ldScreen.style.display = 'flex';
+					var ldBack = document.getElementById('leaderboard-back-button');
+					if (ldBack) {
+						ldBack.onclick = function() {
+							ldScreen.style.display = 'none';
+						};
+					}
+				}
+			} else {
+				var endScreen = document.getElementById('end-screen');
+				if (endScreen) endScreen.style.display = 'flex';
+				var btnSeeLeaderboard = document.getElementById('btn-see-leaderboard');
+				if (btnSeeLeaderboard) btnSeeLeaderboard.style.display = 'block';
+				var btnRestart = document.getElementById('btn-restart-challenge');
+				if (btnRestart) btnRestart.style.display = isHost ? 'block' : 'none';
 			}
 		}
 	};

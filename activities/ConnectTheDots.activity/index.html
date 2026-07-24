@@ -11,6 +11,7 @@
 	href="lib/sugar-web/graphics/css/sugar-200dpi.css">
 <link rel="stylesheet" href="css/activity.css">
 <link rel="stylesheet" href="css/CategoryForm.css">
+<link rel="stylesheet" href="css/leaderboard.css">
 <link rel="stylesheet" href="css/introjs.css">
 <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
 <script src="lib/intro.js"></script>
@@ -26,6 +27,7 @@
 	<button class="toolbutton" id="network-button" title="Network"></button>
 	<button class="toolbutton" id="mode-button" title="Mode"></button>
 	<button class="toolbutton" id="library-button" title="Library" style="display: none;"></button>
+	<button class="toolbutton" id="timer-button" title="Timer" style="display: none;"></button>
 	<button class="toolbutton" id="view-button" title="View" style="display: none;"></button>
 	<button class="toolbutton" id="create-category-button" title="New Category" style="display: none;"></button>
 	<button class="toolbutton" id="create-figure-minus-button" title="Remove Dot" style="display: none; background-image: url('icons/tool-remove-dot.svg');"></button>
@@ -41,6 +43,7 @@
 <div id="canvas">
 	<button id="create-figure-back-button" class="editor-goback" title="Back" style="display: none;"></button>
 	<button id="play-figure-back-button" class="editor-goback" title="Back" style="display: none;"></button>
+	<div id="timer-display" style="display: none; position: absolute; top: 10px; right: 10px; font-size: 32px; font-weight: bold; background-color: rgba(255, 255, 255, 0.8); padding: 5px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); color: #333; z-index: 50;">00:00</div>
 	<canvas id="gridCanvas" width="900" height="748"></canvas>
 	<div id="library-gallery" style="display: none;">
 		<div id="gallery-header">Basic Shapes</div>
@@ -79,6 +82,32 @@
 				<div class="footer-actions"></div>
 			</div>
 		</div>
+
+		<div id="leaderboard-screen" style="display: none;">
+			<div class="leaderboard-main">
+				<button id="leaderboard-back-button" class="editor-goback" title="Back"></button>
+				<div class="leaderboard-main-header" id="leaderboard-header">
+					<div class="leaderboard-item" style="width:25%">Rank</div>
+					<div class="leaderboard-item" style="width:50%">User</div>
+					<div class="leaderboard-item" style="width:25%">Score</div>
+				</div>
+				<div class="leaderboard-main-body" id="leaderboard-body">
+				</div>
+			</div>
+		</div>
+
+		<div id="end-screen" style="display: none;">
+			<div class="end-top-bar">
+				<div class="end-total-box" id="end-total-time">Total Time: 00:00</div>
+				<div class="end-total-box" id="end-total-score">Total Score: 0</div>
+			</div>
+			<div class="completed-figures-grid" id="completed-figures-grid">
+			</div>
+			<button class="btn-see-leaderboard" id="btn-see-leaderboard" title="See Leaderboard" style="display: none;"></button>
+			<button class="btn-restart-challenge" id="btn-restart-challenge" title="Restart Challenge" style="display: none;"></button>
+		</div>
+	</div>
+	<button class="toolbutton" id="unfullscreen-button" title="Unfullscreen"></button>
 </div>
 <button class="toolbutton" id="unfullscreen-button" title="Unfullscreen"></button>
 </body>

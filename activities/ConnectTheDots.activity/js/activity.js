@@ -1,4 +1,4 @@
-define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode) {
+define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon) {
 
 	requirejs(['domReady!'], function (doc) {
 
@@ -22,6 +22,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		var dots = [];
 		var buddyStroke = '#005fe4';
 		var buddyFill = '#ff2b34';
+		var hasReceivedInit = false;
 
 		function initDots() {
 			dots = [];
@@ -254,13 +255,28 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				network.createSharedActivity('org.sugarlabs.ConnectTheDots', function (groupId) {
 					console.log("Activity shared");
 					isHost = true;
+					if (typeof numberMode.initNetwork === 'function') numberMode.initNetwork(presence, isHost, activity);
+					setSharedToolbar();
+					if (currentMode === numberMode && typeof numberMode.startChallenge === 'function') {
+						numberMode.startChallenge(120, false); // Auto-start 2 minute challenge
+					}
 				});
 				network.onDataReceived(onNetworkDataReceived);
 				network.onSharedActivityUserChanged(onNetworkUserChanged);
 			});
 		});
 
+		function setSharedToolbar() {
+			document.getElementById('mode-button').style.display = 'none';
+		}
+
 		function broadcastUpdate() {
+			var isChallengeActive = false;
+			if (currentMode === numberMode && typeof numberMode.getSharedState === 'function') {
+				isChallengeActive = numberMode.getSharedState().challengeActive;
+			}
+			if (isChallengeActive) return; // Do not broadcast drawing updates during challenge
+			
 			if (typeof updateLibraryMenu === 'function') {
 				updateLibraryMenu();
 			}
@@ -289,12 +305,20 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			}
 			switch (msg.content.action) {
 				case 'init':
+					if (hasReceivedInit) break;
+					hasReceivedInit = true;
 					if (currentMode && typeof currentMode.deserialize === 'function') {
 						if (currentMode === numberMode) {
-							currentMode.deserialize(msg.content.data);
-							if (typeof updateLibraryMenu === 'function') updateLibraryMenu();
+							currentMode.deserialize(msg.content.data, true);
+							if (typeof currentMode.updateLibraryMenu === 'function') currentMode.updateLibraryMenu();
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures);
+						}
+					}
+					if (msg.content.challengeActive) {
+						if (currentMode === numberMode && typeof currentMode.startChallenge === 'function') {
+							currentMode.startChallenge(msg.content.challengeDuration !== undefined ? msg.content.challengeDuration : 120, true);
+							if (msg.content.challengeScores) currentMode.setChallengeScores(msg.content.challengeScores);
 						}
 					}
 					break;
@@ -302,7 +326,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					if (currentMode && typeof currentMode.deserialize === 'function') {
 						if (currentMode === numberMode) {
 							currentMode.deserialize(msg.content.data);
-							if (typeof updateLibraryMenu === 'function') updateLibraryMenu();
+							if (typeof currentMode.updateLibraryMenu === 'function') currentMode.updateLibraryMenu();
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures, true);
 						}
@@ -317,19 +341,36 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						}
 					}
 					break;
+				case 'timer-selected':
+				case 'finish-challenge':
+				case 'figure-completed':
+				case 'restart-challenge':
+					if (currentMode === numberMode && typeof currentMode.handleNetworkMessage === 'function') {
+						currentMode.handleNetworkMessage(msg);
+					}
+					break;
 			}
 		};
 
 		// Handle user join/leave
 		var onNetworkUserChanged = function (msg) {
-			if (isHost && currentMode && typeof currentMode.serialize === 'function') {
+			if (isHost && msg.move === 1 && currentMode && typeof currentMode.serialize === 'function') {
+				var content = {
+					action: 'init',
+					mode: currentMode === numberMode ? 'number' : 'draw',
+					data: currentMode === numberMode ? currentMode.serialize(true) : currentMode.serialize()
+				};
+				if (currentMode === numberMode && typeof currentMode.getSharedState === 'function') {
+					var state = currentMode.getSharedState();
+					content.challengeActive = state.challengeActive;
+					content.challengeRemaining = state.challengeRemaining;
+					content.challengeDuration = state.challengeDuration;
+					content.challengeScores = state.challengeScores;
+					content.currentChallengeScore = state.currentChallengeScore;
+				}
 				presence.sendMessage(presence.getSharedInfo().id, {
 					user: presence.getUserInfo(),
-					content: {
-						action: 'init',
-						mode: currentMode === numberMode ? 'number' : 'draw',
-						data: currentMode.serialize()
-					}
+					content: content
 				});
 			}
 			console.log("User " + msg.user.name + " " + (msg.move == 1 ? "join" : "leave"));
@@ -339,6 +380,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		var currentenv;
 		env.getEnvironment(function (err, environment) {
 			currentenv = environment;
+			if (numberMode && typeof numberMode.setEnvironment === 'function') {
+				numberMode.setEnvironment(environment);
+			}
 			if (environment && environment.user && environment.user.colorvalue) {
 				buddyStroke = environment.user.colorvalue.stroke || buddyStroke;
 				buddyFill = environment.user.colorvalue.fill || buddyFill;
@@ -404,8 +448,10 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				console.log("Shared instance");
 				activity.getPresenceObject(function (error, network) {
 					presence = network;
+					if (typeof numberMode.initNetwork === 'function') numberMode.initNetwork(presence, isHost, activity);
 					network.onDataReceived(onNetworkDataReceived);
 					network.onSharedActivityUserChanged(onNetworkUserChanged);
+					setSharedToolbar();
 				});
 			}
 		});
@@ -491,11 +537,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('draw-button').style.display = 'none';
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
-				document.getElementById('library-button').style.display = '';
-				var vBtn = document.getElementById('view-button');
-				if (vBtn) vBtn.style.display = '';
-				var cBtn = document.getElementById('create-category-button');
-				if (cBtn) cBtn.style.display = (numberMode.getView && numberMode.getView() === 'setting') ? '' : 'none';
+				
+				if (typeof newMode.activate === 'function') newMode.activate();
+			
 				updateLibraryMenu();
 				numberMode.showGallery(undefined, l10n, skipBroadcast);
 			} else {
@@ -503,11 +547,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('draw-button').style.display = '';
 				document.getElementById('erase-button').style.display = '';
 				document.getElementById('clear-button').style.display = '';
-				document.getElementById('library-button').style.display = 'none';
-				var vBtn = document.getElementById('view-button');
-				if (vBtn) vBtn.style.display = 'none';
-				var cBtn = document.getElementById('create-category-button');
-				if (cBtn) cBtn.style.display = 'none';
+				
+				if (numberMode && typeof numberMode.deactivate === 'function') numberMode.deactivate();
+				
 				if (libraryPalette) libraryPalette.popDown();
 				var gallery = document.getElementById('library-gallery');
 				if (gallery) gallery.style.display = 'none';

@@ -12,6 +12,16 @@
   background-image: url(../icons/mode-draw.svg);
 }
 
+#timer-button {
+  background-image: url(../icons/tool-timer.svg);
+}
+
+/* Mode menu icons are styled with enlarged spans at the bottom of the file */
+
+.toolbutton:disabled {
+  opacity: 0.35;
+}
+
 #main-toolbar #library-button {
   background-image: url(../icons/tool-select-library.svg);
 }
@@ -523,11 +533,11 @@ html, body {
 
 button#mode-draw,
 button#mode-number,
-button[id^="lib-"],
 .palette .menu button#mode-draw.icon,
 .palette .menu button#mode-number.icon,
 .palette .menu button[id^="lib-"].icon,
-.palette .menu li button[id^="lib-"] {
+.palette .menu li button[id^="lib-"],
+.palette .menu li button[id$="-timer-button"] {
   all: unset !important;
   color: white !important;
   padding: 10px 20px !important;
@@ -548,7 +558,8 @@ button[id^="lib-"]:hover,
 .palette .menu button#mode-draw.icon:hover,
 .palette .menu button#mode-number.icon:hover,
 .palette .menu button[id^="lib-"].icon:hover,
-.palette .menu li button[id^="lib-"]:hover {
+.palette .menu li button[id^="lib-"]:hover,
+.palette .menu li button[id$="-timer-button"]:hover {
   background-color: #808080 !important;
 }
 
@@ -647,4 +658,23 @@ button[id^="lib-"] span,
     width: 100px;
     height: 70px;
   }
+
+  }
+  #timer-palette {
+  width: max-content;
+}
+
+.palette-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.palette-item:hover {
+  background-color: #e5e5e5;
+}
+
+.palette-item-selected {
+  font-weight: bold;
+  background-color: #d0d0d0;
 }
