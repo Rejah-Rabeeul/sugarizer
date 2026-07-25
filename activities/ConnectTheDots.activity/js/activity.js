@@ -588,7 +588,11 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 
 		libraryButton.addEventListener('click', function () {
 			var gallery = document.getElementById('library-gallery');
-			if (gallery && gallery.style.display === 'none' && currentMode === numberMode) {
+			var leaderboardScreen = document.getElementById('leaderboard-screen');
+			var endScreen = document.getElementById('end-screen');
+			var isPopupVisible = (leaderboardScreen && leaderboardScreen.style.display !== 'none') || 
+			                     (endScreen && endScreen.style.display !== 'none');
+			if (gallery && gallery.style.display === 'none' && currentMode === numberMode && !isPopupVisible) {
 				numberMode.showGallery(undefined, l10n);
 				if (libraryPalette) libraryPalette.popDown();
 			}

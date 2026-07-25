@@ -1292,7 +1292,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				currentCategoryKey: currentCategoryKey,
 				challengeCategory: challengeCategory,
 				challengeIndex: challengeIndex,
-				view: view,
+				view: isCreatingFigure ? 'setting' : 'play',
 				libraries: libraries,
 				categoryNames: categoryNames
 			};
@@ -1337,12 +1337,16 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 			if (data.view && data.view !== view) {
 				if (!(data.view === 'leaderboard' && challengeActive)) {
-					NumberMode.setView(data.view, true);
+					var targetView = data.view;
+					if (!isNetworkInit && targetView === 'setting') {
+						targetView = 'play';
+					}
+					NumberMode.setView(targetView, true);
 				}
 			}
-			isCreatingFigure = !!data.isCreatingFigure;
+			isCreatingFigure = isNetworkInit ? !!data.isCreatingFigure : false;
 
-			if (data.currentDrawing) {
+			if (data.currentDrawing && (!data.isCreatingFigure || isNetworkInit)) {
 				currentDrawing = data.currentDrawing;
 				if (buddyStrokeColor) currentDrawing.strokeColor = buddyStrokeColor;
 				if (buddyFillColor) currentDrawing.fillColor = buddyFillColor;
@@ -1535,6 +1539,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 		},
 		activate: function() {
+			if (!isCreatingFigure && view === 'setting') {
+				NumberMode.setView('play', true);
+			}
 			var idsToShow = [];
 			if (!presence || isHost) {
 				idsToShow.push('library-button');
