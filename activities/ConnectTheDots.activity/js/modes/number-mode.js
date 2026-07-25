@@ -550,7 +550,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			if (modeBtn) modeBtn.style.display = '';
 			var netBtn = document.getElementById('network-button');
 			if (netBtn) netBtn.style.display = '';
-
+			NumberMode.updateLibraryMenu();
 			broadcastUpdate();
 		},
 		confirmRenameCategory: function (oldKey, newName, l10n) {
@@ -578,7 +578,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			if (modeBtn) modeBtn.style.display = '';
 			var netBtn = document.getElementById('network-button');
 			if (netBtn) netBtn.style.display = '';
-
+			NumberMode.updateLibraryMenu();
 			broadcastUpdate();
 		},
 		deleteCategory: function (categoryKey) {
@@ -594,6 +594,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var nextKey = remainingKeys[0] || 'basic-shapes';
 			currentCategoryKey = nextKey;
 
+			NumberMode.updateLibraryMenu();
 			NumberMode.showGallery(nextKey, l10nRef);
 			broadcastUpdate();
 		},
