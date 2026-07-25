@@ -176,9 +176,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 			
 			if (!skipInit) {
-				challengeCategory = 'basic-shapes';
+				challengeCategory = currentCategoryKey || 'basic-shapes';
 				challengeIndex = 0;
-				var d = libraries[challengeCategory][challengeIndex];
+				var d = libraries[challengeCategory] && libraries[challengeCategory][challengeIndex];
 				if (d) {
 					NumberMode.selectDrawing(d, challengeIndex, true);
 				}
@@ -333,7 +333,8 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			menuElem.className = "menu";
 			var htmlStr = '';
 			for (var j = 0; j < menuData.length; j++) {
-				htmlStr += '<li><button id="' + menuData[j].id + '">' + menuData[j].label + '</button></li>';
+				var isSelected = (menuData[j].id === "lib-" + currentCategoryKey) ? ' palette-item-selected' : '';
+				htmlStr += '<li><button id="' + menuData[j].id + '" class="' + isSelected + '">' + menuData[j].label + '</button></li>';
 			}
 			menuElem.innerHTML = htmlStr;
 			if (typeof libraryPalette.setContent === 'function') {
@@ -353,13 +354,28 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 						target = target.parentElement;
 					}
 					var selectedId = target ? target.id : '';
+					var catKey = null;
 					if (selectedId === 'lib-basic-shapes') {
-						NumberMode.showGallery('basic-shapes', l10n);
+						catKey = 'basic-shapes';
 					} else if (selectedId === 'lib-objects') {
-						NumberMode.showGallery('objects', l10n);
+						catKey = 'objects';
 					} else if (selectedId && selectedId.indexOf('lib-') === 0) {
-						var catKey = selectedId.substring(4);
-						NumberMode.showGallery(catKey, l10n);
+						catKey = selectedId.substring(4);
+					}
+					if (catKey) {
+						var allBtns = menuElem.querySelectorAll('button');
+						for (var k = 0; k < allBtns.length; k++) {
+							allBtns[k].classList.remove('palette-item-selected');
+						}
+						target.classList.add('palette-item-selected');
+						
+						var endScreen = document.getElementById('end-screen');
+						if (endScreen && endScreen.style.display !== 'none') {
+							currentCategoryKey = catKey;
+							challengeCategory = catKey;
+						} else {
+							NumberMode.showGallery(catKey, l10n);
+						}
 					}
 					libraryPalette.popDown();
 				});
@@ -1536,18 +1552,24 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				if (timerButton) {
 					timerPal = new timerPalette.TimerPalette(timerButton, undefined);
 					timerPal.addEventListener('timer-selected', function(e) {
-						var durations = [60, 120, 300];
+						var durations = [0, 60, 120, 300];
 						var duration = durations[e.index];
-						if (presence) {
-							presence.sendMessage(presence.getSharedInfo().id, {
-								user: presence.getUserInfo(),
-								content: {
-									action: 'timer-selected',
-									duration: duration
-								}
-							});
+						challengeDuration = duration;
+						var endScreen = document.getElementById('end-screen');
+						if (endScreen && endScreen.style.display !== 'none') {
+							// update the duration (wait for Restart)
+						} else {
+							if (presence) {
+								presence.sendMessage(presence.getSharedInfo().id, {
+									user: presence.getUserInfo(),
+									content: {
+										action: 'timer-selected',
+										duration: duration
+									}
+								});
+							}
+							NumberMode.startChallenge(duration, false);
 						}
-						NumberMode.startChallenge(duration, false);
 					});
 				}
 				var btnSeeLeaderboard = document.getElementById('btn-see-leaderboard');
@@ -1563,7 +1585,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 							presence.sendMessage(presence.getSharedInfo().id, {
 								user: presence.getUserInfo(),
 								content: {
-									action: 'restart-challenge'
+									action: 'restart-challenge',
+									duration: challengeDuration,
+									category: currentCategoryKey
 								}
 							});
 						}
@@ -1644,7 +1668,11 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					}
 					break;
 				case 'restart-challenge':
-					NumberMode.startChallenge(challengeDuration, false);
+					if (msg.content.category) {
+						currentCategoryKey = msg.content.category;
+					}
+					var newDuration = msg.content.duration !== undefined ? msg.content.duration : challengeDuration;
+					NumberMode.startChallenge(newDuration, false);
 					break;
 			}
 		},

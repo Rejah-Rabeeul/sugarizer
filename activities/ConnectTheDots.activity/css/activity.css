@@ -674,7 +674,8 @@ button[id^="lib-"] span,
   background-color: #e5e5e5;
 }
 
-.palette-item-selected {
+.palette-item-selected,
+.palette .menu li button.palette-item-selected {
   font-weight: bold;
-  background-color: #d0d0d0;
+  background-color: #808080 !important;
 }
