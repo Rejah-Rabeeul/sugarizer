@@ -31,7 +31,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 	var presence = null;
 	var isHost = false;
 	var timerPal = null;
-
+	var isActiveMode = false;
 
 	function triggerConfetti() {
 		if (typeof confetti === 'function') {
@@ -1532,13 +1532,14 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					if (libBtn) libBtn.style.display = 'none';
 				}
 				var timerBtn = document.getElementById('timer-button');
-				if (timerBtn && isHost) timerBtn.style.display = '';
+				if (timerBtn && isHost && isActiveMode) timerBtn.style.display = '';
 				if (view === 'setting') {
 					NumberMode.setView('play', true);
 				}
 			}
 		},
 		activate: function() {
+			isActiveMode = true;
 			if (!isCreatingFigure && view === 'setting') {
 				NumberMode.setView('play', true);
 			}
@@ -1605,10 +1606,14 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 		},
 		deactivate: function() {
+			isActiveMode = false;
 			var idsToHide = ['library-button', 'view-button', 'create-category-button', 'timer-button'];
 			for (var i = 0; i < idsToHide.length; i++) {
 				var el = document.getElementById(idsToHide[i]);
 				if (el) el.style.display = 'none';
+			}
+			if (timerPal) {
+				timerPal.popDown();
 			}
 		},
 		getSharedState: function() {
