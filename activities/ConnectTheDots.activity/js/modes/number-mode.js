@@ -245,7 +245,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			} else if (view === 'play' && currentDrawing && !isCreatingFigure) {
 				var playBackBtn = document.getElementById('play-figure-back-button');
 				if (playBackBtn) {
-					playBackBtn.style.display = '';
+					playBackBtn.style.display = presence ? 'none' : '';
 					playBackBtn.onclick = function () {
 						NumberMode.backToGallery();
 					};
@@ -764,7 +764,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 			var playBackBtn = document.getElementById('play-figure-back-button');
 			if (playBackBtn) {
-				playBackBtn.style.display = '';
+				playBackBtn.style.display = presence ? 'none' : '';
 				playBackBtn.onclick = function () {
 					NumberMode.backToGallery();
 				};
@@ -1415,7 +1415,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					if (backBtn) backBtn.style.display = 'none';
 					if (minusBtn) minusBtn.style.display = 'none';
 					if (playBackBtn) {
-						playBackBtn.style.display = (view === 'play') ? '' : 'none';
+						playBackBtn.style.display = (view === 'play' && !presence) ? '' : 'none';
 						playBackBtn.onclick = function () {
 							NumberMode.backToGallery();
 						};
@@ -1533,6 +1533,10 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				}
 				var timerBtn = document.getElementById('timer-button');
 				if (timerBtn && isHost && isActiveMode) timerBtn.style.display = '';
+				
+				var playBackBtn = document.getElementById('play-figure-back-button');
+				if (playBackBtn) playBackBtn.style.display = 'none';
+
 				if (view === 'setting') {
 					NumberMode.setView('play', true);
 				}
