@@ -1801,18 +1801,16 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		},
 		updateTimerDisplay: function() {
 			var d = document.getElementById('timer-display');
-			if (d) d.textContent = NumberMode.formatTime(challengeRemaining) + " | Score: " + currentChallengeScore;
+			if (d) {
+				if (challengeDuration === 0) {
+					d.textContent = "Score: " + currentChallengeScore;
+				} else {
+					d.textContent = NumberMode.formatTime(challengeRemaining) + " | Score: " + currentChallengeScore;
+				}
+			}
 		},
 		startChallenge: function(duration, skipInit) {
 			challengeDuration = duration;
-			if (duration === 0) {
-				NumberMode.stopChallenge();
-				return;
-			}
-			challengeRemaining = duration;
-			challengeScores = [];
-			currentChallengeScore = 0;
-			completedFigures = [];
 			
 			var btnSeeLeaderboard = document.getElementById('btn-see-leaderboard');
 			if (btnSeeLeaderboard) btnSeeLeaderboard.style.display = 'none';
@@ -1824,6 +1822,11 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var ldScreen = document.getElementById('leaderboard-screen');
 			if (ldScreen) ldScreen.style.display = 'none';
 			
+			challengeRemaining = duration;
+			challengeScores = [];
+			currentChallengeScore = 0;
+			completedFigures = [];
+
 			var display = document.getElementById('timer-display');
 			if (display) display.style.display = 'block';
 
@@ -1849,17 +1852,19 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			NumberMode.updateTimerDisplay();
 			
 			if (challengeInterval) clearInterval(challengeInterval);
-			challengeInterval = setInterval(function() {
-				challengeRemaining--;
-				if (challengeRemaining < 0) challengeRemaining = 0;
-				NumberMode.updateTimerDisplay();
-				if (challengeRemaining <= 0) {
-					clearInterval(challengeInterval);
-					challengeRemaining = 0;
-					NumberMode.endChallenge();
-				}
-			}, 1000);
-			
+			if (duration > 0) {
+				challengeInterval = setInterval(function () {
+					challengeRemaining--;
+					if (challengeRemaining < 0) challengeRemaining = 0;
+					NumberMode.updateTimerDisplay();
+					if (challengeRemaining <= 0) {
+						clearInterval(challengeInterval);
+						challengeRemaining = 0;
+						NumberMode.endChallenge();
+					}
+				}, 1000);
+			}
+
 			NumberMode.onChallengeStarted(duration, skipInit);
 		},
 		stopChallenge: function() {
