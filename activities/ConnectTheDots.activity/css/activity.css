@@ -151,6 +151,7 @@
   transition: transform 0.1s, box-shadow 0.1s;
   padding: 8px 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .gallery-card:hover {
@@ -233,6 +234,7 @@
 .gallery-card-inner {
   width: 100%;
   flex: 1;
+  min-height: 0;
   background: transparent;
   display: flex;
   align-items: center;
@@ -658,8 +660,8 @@ button[id^="lib-"] span,
     width: 100px;
     height: 70px;
   }
+}
 
-  }
   #timer-palette {
   width: max-content;
 }

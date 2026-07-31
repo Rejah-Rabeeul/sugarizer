@@ -519,6 +519,87 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var netBtn = document.getElementById('network-button');
 			if (netBtn) netBtn.style.display = '';
 		},
+
+		showFigureForm: function (defaultName, onConfirm, onCancel) {
+			var formScreen = document.getElementById('figure-form-screen');
+			if (!formScreen) return;
+			formScreen.style.backgroundColor = buddyStrokeColor || '#005fe4';
+			var barBlock = formScreen.querySelector('.category-form-bar-block');
+			if (barBlock) barBlock.style.backgroundColor = buddyFillColor || '#ff2b34';
+
+			var titleEl = document.getElementById('figure-form-title');
+			if (titleEl) titleEl.textContent = (l10nRef && l10nRef.get("NewFigure")) || "New Figure";
+			var labelEl = document.getElementById('figure-form-label');
+			if (labelEl) labelEl.textContent = (l10nRef && l10nRef.get("Name")) || "Name";
+			var confirmSpan = document.getElementById('figure-confirm-span');
+			if (confirmSpan) confirmSpan.textContent = (l10nRef && l10nRef.get("Confirm")) || "Confirm";
+			var cancelSpan = document.getElementById('figure-cancel-span');
+			if (cancelSpan) cancelSpan.textContent = (l10nRef && l10nRef.get("Cancel")) || "Cancel";
+
+			var inputEl = document.getElementById('figure-title-input');
+			var confirmBtn = document.getElementById('figure-confirm-btn');
+			var cancelBtn = document.getElementById('figure-cancel-btn');
+
+			if (inputEl && confirmBtn) {
+				inputEl.value = defaultName || '';
+				confirmBtn.disabled = false;
+
+				var validateInput = function () {
+					var val = inputEl.value;
+					if (!val || val.trim() === '') {
+						confirmBtn.disabled = true;
+					} else {
+						confirmBtn.disabled = false;
+					}
+				};
+
+				inputEl.oninput = validateInput;
+				inputEl.onkeyup = validateInput;
+				inputEl.onpropertychange = validateInput;
+
+				confirmBtn.onclick = function (e) {
+					if (e) {
+						e.stopPropagation();
+						e.preventDefault();
+					}
+					if (confirmBtn.disabled) return;
+					var figName = inputEl.value.trim();
+					if (!figName) return;
+					formScreen.style.display = 'none';
+					if (onConfirm) onConfirm(figName);
+				};
+
+				var formEl = document.getElementById('figure-form');
+				if (formEl) {
+					formEl.onsubmit = function (e) {
+						if (e) e.preventDefault();
+						if (!confirmBtn.disabled) {
+							confirmBtn.onclick();
+						}
+						return false;
+					};
+				}
+			}
+
+			if (cancelBtn) {
+				cancelBtn.onclick = function (e) {
+					if (e) e.stopPropagation();
+					formScreen.style.display = 'none';
+					if (onCancel) onCancel();
+				};
+			}
+
+			var gridCanvas = document.getElementById('gridCanvas');
+			if (gridCanvas) gridCanvas.style.display = 'none';
+			
+			var backBtn = document.getElementById('create-figure-back-button');
+			if (backBtn) backBtn.style.display = 'none';
+			var minusBtn = document.getElementById('create-figure-minus-button');
+			if (minusBtn) minusBtn.style.display = 'none';
+
+			formScreen.style.display = 'flex';
+		},
+
 		confirmAddCategory: function (catName, l10n) {
 			if (l10n) l10nRef = l10n;
 			var key = catName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -710,6 +791,11 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				}
 
 				card.appendChild(inner);
+
+				var titleLabel = document.createElement('div');
+				titleLabel.className = 'gallery-title';
+				titleLabel.textContent = (l10nRef && l10nRef.get(drawing.name)) || drawing.name;
+				card.appendChild(titleLabel);
 
 				card.addEventListener('click', function () {
 					if (view === 'setting') return;
@@ -1083,15 +1169,24 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 						if (l10nRef && l10nRef.get('Figure')) {
 							defaultName = l10nRef.get('Figure') + ' ' + ((libraries[currentCategoryKey] ? libraries[currentCategoryKey].length : 0) + 1);
 						}
-						if (activeDrawingIndex >= 0 && libraries[currentCategoryKey] && libraries[currentCategoryKey][activeDrawingIndex]) {
-							libraries[currentCategoryKey][activeDrawingIndex].name = defaultName;
-							libraries[currentCategoryKey][activeDrawingIndex].points = currentDrawing.points;
-							libraries[currentCategoryKey][activeDrawingIndex].closed = currentDrawing.closed;
-						} else {
-							NumberMode.addFigure(currentCategoryKey, defaultName, currentDrawing.points, currentDrawing.closed, true);
-						}
+						NumberMode.showFigureForm(defaultName, function (name) {
+							if (activeDrawingIndex >= 0 && libraries[currentCategoryKey] && libraries[currentCategoryKey][activeDrawingIndex]) {
+								libraries[currentCategoryKey][activeDrawingIndex].name = name;
+								libraries[currentCategoryKey][activeDrawingIndex].points = currentDrawing.points;
+								libraries[currentCategoryKey][activeDrawingIndex].closed = currentDrawing.closed;
+							} else {
+								NumberMode.addFigure(currentCategoryKey, name, currentDrawing.points, currentDrawing.closed, true);
+							}
+							NumberMode.stopCreatingFigure();
+						}, function () {
+							var gridCanvas = document.getElementById('gridCanvas');
+							if (gridCanvas) gridCanvas.style.display = '';
+							if (backBtn) backBtn.style.display = '';
+							if (minusBtn) minusBtn.style.display = '';
+						});
+					} else {
+						NumberMode.stopCreatingFigure();
 					}
-					NumberMode.stopCreatingFigure();
 				};
 			}
 			if (minusBtn) {
@@ -1162,15 +1257,24 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				backBtn.onclick = function () {
 					if (currentDrawing && currentDrawing.points && currentDrawing.points.length >= 2) {
 						var defaultName = currentDrawing.name || ('Figure ' + ((libraries[currentCategoryKey] ? libraries[currentCategoryKey].length : 0) + 1));
-						if (activeDrawingIndex >= 0 && libraries[currentCategoryKey] && libraries[currentCategoryKey][activeDrawingIndex]) {
-							libraries[currentCategoryKey][activeDrawingIndex].name = defaultName;
-							libraries[currentCategoryKey][activeDrawingIndex].points = currentDrawing.points;
-							libraries[currentCategoryKey][activeDrawingIndex].closed = currentDrawing.closed;
-						} else {
-							NumberMode.addFigure(currentCategoryKey, defaultName, currentDrawing.points, currentDrawing.closed, true);
-						}
+						NumberMode.showFigureForm(defaultName, function (name) {
+							if (activeDrawingIndex >= 0 && libraries[currentCategoryKey] && libraries[currentCategoryKey][activeDrawingIndex]) {
+								libraries[currentCategoryKey][activeDrawingIndex].name = name;
+								libraries[currentCategoryKey][activeDrawingIndex].points = currentDrawing.points;
+								libraries[currentCategoryKey][activeDrawingIndex].closed = currentDrawing.closed;
+							} else {
+								NumberMode.addFigure(currentCategoryKey, name, currentDrawing.points, currentDrawing.closed, true);
+							}
+							NumberMode.stopCreatingFigure();
+						}, function () {
+							var gridCanvas = document.getElementById('gridCanvas');
+							if (gridCanvas) gridCanvas.style.display = '';
+							if (backBtn) backBtn.style.display = '';
+							if (minusBtn) minusBtn.style.display = '';
+						});
+					} else {
+						NumberMode.stopCreatingFigure();
 					}
-					NumberMode.stopCreatingFigure();
 				};
 			}
 			if (minusBtn) {

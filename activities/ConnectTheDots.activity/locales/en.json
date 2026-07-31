@@ -25,5 +25,17 @@
 	"NewTitle": "New Category",
 	"Confirm": "Confirm",
 	"Cancel": "Cancel",
-	"Title": "Title"
+	"Title": "Title",
+	"Square": "Square",
+	"Rectangle": "Rectangle",
+	"Right Triangle": "Right Triangle",
+	"Trapezoid": "Trapezoid",
+	"Parallelogram": "Parallelogram",
+	"Diamond": "Diamond",
+	"Hexagon": "Hexagon",
+	"Octagon": "Octagon",
+	"L-Shape": "L-Shape",
+	"Star": "Star",
+	"Fish": "Fish",
+	"Crown": "Crown"
 }
