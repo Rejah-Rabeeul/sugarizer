@@ -388,7 +388,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var gridCanvas = document.getElementById('gridCanvas');
 			if (gridCanvas) gridCanvas.style.display = 'none';
 
-			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'create-figure-minus-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button'];
+			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'create-figure-minus-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button', 'stop-game-button'];
 			for (var i = 0; i < idsToHide.length; i++) {
 				var btn = document.getElementById(idsToHide[i]);
 				if (btn) btn.style.display = 'none';
@@ -1150,7 +1150,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var gridCanvas = document.getElementById('gridCanvas');
 			if (gridCanvas) gridCanvas.style.display = '';
 
-			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button'];
+			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button', 'stop-game-button'];
 			for (var i = 0; i < idsToHide.length; i++) {
 				var el = document.getElementById(idsToHide[i]);
 				if (el) el.style.display = 'none';
@@ -1241,7 +1241,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var gridCanvas = document.getElementById('gridCanvas');
 			if (gridCanvas) gridCanvas.style.display = '';
 
-			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button'];
+			var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button', 'stop-game-button'];
 			for (var i = 0; i < idsToHide.length; i++) {
 				var el = document.getElementById(idsToHide[i]);
 				if (el) el.style.display = 'none';
@@ -1469,7 +1469,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				var minusBtn = document.getElementById('create-figure-minus-button');
 
 				if (isCreatingFigure) {
-					var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button'];
+					var idsToHide = ['mode-button', 'library-button', 'view-button', 'create-category-button', 'colors-button-fill', 'draw-button', 'erase-button', 'clear-button', 'stop-game-button'];
 					for (var i = 0; i < idsToHide.length; i++) {
 						var el = document.getElementById(idsToHide[i]);
 						if (el) el.style.display = 'none';
@@ -1715,7 +1715,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		},
 		deactivate: function() {
 			isActiveMode = false;
-			var idsToHide = ['library-button', 'view-button', 'create-category-button', 'timer-button'];
+			var idsToHide = ['library-button', 'view-button', 'create-category-button', 'timer-button', 'stop-game-button'];
 			for (var i = 0; i < idsToHide.length; i++) {
 				var el = document.getElementById(idsToHide[i]);
 				if (el) el.style.display = 'none';
@@ -1752,7 +1752,12 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 						NumberMode.startChallenge(msg.content.duration, false);
 					}
 					break;
-				case 'finish-challenge':
+				case 'stop-shared-game':
+					if (challengeActive) {
+						NumberMode.endChallenge();
+					}
+					break;
+					case 'finish-challenge':
 					var found = false;
 					for (var i = 0; i < challengeScores.length; i++) {
 						if (challengeScores[i].user.networkId === msg.user.networkId) {
@@ -1831,6 +1836,26 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			
 			var display = document.getElementById('timer-display');
 			if (display) display.style.display = 'block';
+
+			if (presence && isHost) {
+				var stopGameBtn = document.getElementById('stop-game-button');
+				if (stopGameBtn) {
+					stopGameBtn.style.display = '';
+					stopGameBtn.disabled = false;
+					stopGameBtn.onclick = function() {
+						if (presence && isHost && challengeActive) {
+							presence.sendMessage(presence.getSharedInfo().id, {
+								user: presence.getUserInfo(),
+								content: {
+									action: 'stop-shared-game'
+								}
+							});
+							NumberMode.endChallenge();
+						}
+					};
+				}
+			}
+
 			NumberMode.updateTimerDisplay();
 			
 			if (challengeInterval) clearInterval(challengeInterval);
@@ -1853,6 +1878,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			var display = document.getElementById('timer-display');
 			if (display) display.style.display = 'none';
 			
+
+			var stopGameBtn = document.getElementById('stop-game-button');
+			if (stopGameBtn) stopGameBtn.disabled = true;
 			NumberMode.onChallengeStopped();
 		},
 		endChallenge: function() {
