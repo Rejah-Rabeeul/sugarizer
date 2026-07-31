@@ -62,24 +62,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		return "rgb(" + r + "," + g + "," + b + ")";
 	}
 
-	var libraries = {
-		'basic-shapes': [
-			{ name: 'Square', points: [[3,2], [11,2], [11,10], [3,10]], closed: true },
-			{ name: 'Rectangle', points: [[2,3], [12,3], [12,9], [2,9]], closed: true },
-			{ name: 'Right Triangle', points: [[3,2], [3,10], [11,10]], closed: true },
-			{ name: 'Trapezoid', points: [[4,3], [10,3], [12,9], [2,9]], closed: true },
-			{ name: 'Parallelogram', points: [[4,3], [12,3], [10,9], [2,9]], closed: true },
-			{ name: 'Diamond', points: [[7,1], [12,6], [7,11], [2,6]], closed: true },
-			{ name: 'Hexagon', points: [[4,2], [10,2], [13,6], [10,10], [4,10], [1,6]], closed: true },
-			{ name: 'Octagon', points: [[5,1], [9,1], [12,4], [12,8], [9,11], [5,11], [2,8], [2,4]], closed: true },
-			{ name: 'L-Shape', points: [[4,2], [7,2], [7,7], [11,7], [11,10], [4,10]], closed: true }
-		],
-		'objects': [
-			{ name: 'Star', points: [[7,1], [8,5], [12,5], [9,7], [10,11], [7,9], [4,11], [5,7], [2,5], [6,5]], closed: true },
-			{ name: 'Fish', points: [[2,6], [6,2], [10,5], [13,2], [13,10], [10,7], [6,10]], closed: true },
-			{ name: 'Crown', points: [[3,9], [2,4], [5,6], [7,2], [9,6], [12,4], [11,9]], closed: true }
-		]
-	};
+	var libraries = JSON.parse(JSON.stringify(initialDataSet));
 
 	var categoryNames = {};
 
@@ -1406,6 +1389,13 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			if (!data) return;
 			if (data.libraries) {
 				libraries = data.libraries;
+				if (typeof initialDataSet !== 'undefined') {
+					for (var cat in initialDataSet) {
+						if (!libraries[cat]) {
+							libraries[cat] = JSON.parse(JSON.stringify(initialDataSet[cat]));
+						}
+					}
+				}
 			}
 			if (data.categoryNames) {
 				categoryNames = data.categoryNames;
