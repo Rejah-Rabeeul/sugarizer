@@ -85,5 +85,12 @@
 	"Bathtub": "Bañera",
 	"Window": "Ventana",
 	"NewFigure": "Nueva figura",
-	"Name": "Nombre"
+	"Name": "Nombre",
+	"Rank": "Rango",
+	"User": "Usuario",
+	"Score": "Puntaje",
+	"TotalTime": "Tiempo Total",
+	"TotalScore": "Puntaje Total",
+	"SeeLeaderboard": "Ver Clasificación",
+	"RestartChallenge": "Reiniciar Reto"
 }

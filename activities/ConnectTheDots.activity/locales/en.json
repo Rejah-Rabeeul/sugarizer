@@ -85,5 +85,12 @@
 	"Bathtub": "Bathtub",
 	"Window": "Window",
 	"NewFigure": "New Figure",
-	"Name": "Name"
+	"Name": "Name",
+	"Rank": "Rank",
+	"User": "User",
+	"Score": "Score",
+	"TotalTime": "Total Time",
+	"TotalScore": "Total Score",
+	"SeeLeaderboard": "See Leaderboard",
+	"RestartChallenge": "Restart Challenge"
 }

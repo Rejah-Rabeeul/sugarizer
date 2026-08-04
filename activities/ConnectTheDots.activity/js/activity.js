@@ -700,6 +700,29 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById("view-button").title = isSettingMode ? (l10n.get("Play") || "Play") : (l10n.get("View") || "View");
 			}
 			if (document.getElementById("create-category-button")) document.getElementById("create-category-button").title = l10n.get("NewCategory") || "New Category";
+			if (document.getElementById("category-form-title")) document.getElementById("category-form-title").innerHTML = l10n.get("NewTitle") || "New Category";
+			if (document.getElementById("category-form-label")) document.getElementById("category-form-label").innerHTML = l10n.get("Title") || "Title";
+			if (document.getElementById("category-confirm-span")) document.getElementById("category-confirm-span").innerHTML = l10n.get("Confirm") || "Confirm";
+			if (document.getElementById("category-cancel-span")) document.getElementById("category-cancel-span").innerHTML = l10n.get("Cancel") || "Cancel";
+			if (document.getElementById("figure-form-title")) document.getElementById("figure-form-title").innerHTML = l10n.get("NewFigure") || "New Figure";
+			if (document.getElementById("figure-form-label")) document.getElementById("figure-form-label").innerHTML = l10n.get("Name") || "Name";
+			if (document.getElementById("figure-confirm-span")) document.getElementById("figure-confirm-span").innerHTML = l10n.get("Confirm") || "Confirm";
+			if (document.getElementById("figure-cancel-span")) document.getElementById("figure-cancel-span").innerHTML = l10n.get("Cancel") || "Cancel";
+			
+			if (document.getElementById("leaderboard-rank-label")) document.getElementById("leaderboard-rank-label").innerHTML = l10n.get("Rank") || "Rank";
+			if (document.getElementById("leaderboard-user-label")) document.getElementById("leaderboard-user-label").innerHTML = l10n.get("User") || "User";
+			if (document.getElementById("leaderboard-score-label")) document.getElementById("leaderboard-score-label").innerHTML = l10n.get("Score") || "Score";
+			if (document.getElementById("btn-see-leaderboard")) document.getElementById("btn-see-leaderboard").title = l10n.get("SeeLeaderboard") || "See Leaderboard";
+			if (document.getElementById("btn-restart-challenge")) document.getElementById("btn-restart-challenge").title = l10n.get("RestartChallenge") || "Restart Challenge";
+			if (document.getElementById("end-total-time") && document.getElementById("end-total-time").innerHTML.indexOf(":") !== -1) {
+				var parts = document.getElementById("end-total-time").innerHTML.split(":");
+				document.getElementById("end-total-time").innerHTML = (l10n.get("TotalTime") || "Total Time") + ":" + parts[1] + (parts[2] ? ":" + parts[2] : "");
+			}
+			if (document.getElementById("end-total-score") && document.getElementById("end-total-score").innerHTML.indexOf(":") !== -1) {
+				var parts2 = document.getElementById("end-total-score").innerHTML.split(":");
+				document.getElementById("end-total-score").innerHTML = (l10n.get("TotalScore") || "Total Score") + ":" + parts2[1];
+			}
+
 			var modeDrawElem = document.getElementById("mode-draw");
 			if (modeDrawElem) modeDrawElem.innerHTML = '<span></span>' + (l10n.get("DrawMode") || "Draw Mode");
 			var modeNumElem = document.getElementById("mode-number");

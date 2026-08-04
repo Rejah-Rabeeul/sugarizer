@@ -284,7 +284,12 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		getAllCategories: function (l10n) {
 			var titleMap = {
 				'basic-shapes': (l10n && l10n.get('BasicShapes')) || (l10nRef && l10nRef.get('BasicShapes')) || 'Basic Shapes',
-				'objects': (l10n && l10n.get('Objects')) || (l10nRef && l10nRef.get('Objects')) || 'Objects'
+				'objects': (l10n && l10n.get('Objects')) || (l10nRef && l10nRef.get('Objects')) || 'Objects',
+				'Numbers': (l10n && l10n.get('Numbers')) || (l10nRef && l10nRef.get('Numbers')) || 'Numbers',
+				'Alphabets': (l10n && l10n.get('Alphabets')) || (l10nRef && l10nRef.get('Alphabets')) || 'Alphabets',
+				'Symbols / Signs': (l10n && l10n.get('Symbols / Signs')) || (l10nRef && l10nRef.get('Symbols / Signs')) || 'Symbols / Signs',
+				'Tools': (l10n && l10n.get('Tools')) || (l10nRef && l10nRef.get('Tools')) || 'Tools',
+				'Home': (l10n && l10n.get('Home')) || (l10nRef && l10nRef.get('Home')) || 'Home'
 			};
 			var list = [];
 			for (var key in libraries) {
@@ -684,7 +689,12 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 
 			var titleMap = {
 				'basic-shapes': (l10nRef && l10nRef.get('BasicShapes')) || 'Basic Shapes',
-				'objects': (l10nRef && l10nRef.get('Objects')) || 'Objects'
+				'objects': (l10nRef && l10nRef.get('Objects')) || 'Objects',
+				'Numbers': (l10nRef && l10nRef.get('Numbers')) || 'Numbers',
+				'Alphabets': (l10nRef && l10nRef.get('Alphabets')) || 'Alphabets',
+				'Symbols / Signs': (l10nRef && l10nRef.get('Symbols / Signs')) || 'Symbols / Signs',
+				'Tools': (l10nRef && l10nRef.get('Tools')) || 'Tools',
+				'Home': (l10nRef && l10nRef.get('Home')) || 'Home'
 			};
 			// custom name takes priority over default
 			var categoryDisplayName = categoryNames[categoryKey] || titleMap[categoryKey] || categoryKey || 'Basic Shapes';
@@ -2079,7 +2089,8 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				var timeBox = document.getElementById('end-total-time');
 				if (timeBox) {
 					timeBox.style.backgroundColor = fill;
-					timeBox.textContent = "Total Time: " + (Math.floor(challengeDuration / 60) < 10 ? '0' : '') + Math.floor(challengeDuration / 60) + ":" + (challengeDuration % 60 < 10 ? '0' : '') + (challengeDuration % 60);
+					var timeStr = l10nRef && l10nRef.get("TotalTime") ? l10nRef.get("TotalTime") : "Total Time";
+					timeBox.textContent = timeStr + ": " + (Math.floor(challengeDuration / 60) < 10 ? '0' : '') + Math.floor(challengeDuration / 60) + ":" + (challengeDuration % 60 < 10 ? '0' : '') + (challengeDuration % 60);
 				}
 				
 				var scoreBox = document.getElementById('end-total-score');
@@ -2098,7 +2109,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					}
 					if (sumScore > totalScore) totalScore = sumScore;
 					
-					scoreBox.textContent = "Total Score: " + totalScore;
+
+					var scoreStr = l10nRef && l10nRef.get("TotalScore") ? l10nRef.get("TotalScore") : "Total Score";
+					scoreBox.textContent = scoreStr + ": " + totalScore;
 				}
 			}
 			
