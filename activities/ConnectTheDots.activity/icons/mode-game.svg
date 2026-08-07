@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [
+	<!ENTITY stroke_color "#010101">
+	<!ENTITY fill_color "#FFFFFF">
+]>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="55px" height="55px" viewBox="0 0 55 55">
+<g fill="none" stroke="&fill_color;" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Gamepad body -->
+    <rect x="5" y="15" width="45" height="25" rx="10" ry="10" />
+    
+    <!-- D-pad (left side) -->
+    <!-- vertical line -->
+    <line x1="15" y1="23.5" x2="15" y2="31.5" stroke-width="3" />
+    <!-- horizontal line -->
+    <line x1="11" y1="27.5" x2="19" y2="27.5" stroke-width="3" />
+
+    <!-- Action buttons (right side) -->
+    <circle cx="37" cy="30.5" r="3" fill="&fill_color;" stroke="none" />
+    <circle cx="43" cy="24.5" r="3" fill="&fill_color;" stroke="none" />
+</g>
+</svg>

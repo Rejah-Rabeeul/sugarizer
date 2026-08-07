@@ -535,8 +535,10 @@ html, body {
 
 button#mode-draw,
 button#mode-number,
+button#mode-game,
 .palette .menu button#mode-draw.icon,
 .palette .menu button#mode-number.icon,
+.palette .menu button#mode-game.icon,
 .palette .menu button[id^="lib-"].icon,
 .palette .menu li button[id^="lib-"],
 .palette .menu li button[id$="-timer-button"] {
@@ -556,9 +558,11 @@ button#mode-number,
 
 button#mode-draw:hover,
 button#mode-number:hover,
+button#mode-game:hover,
 button[id^="lib-"]:hover,
 .palette .menu button#mode-draw.icon:hover,
 .palette .menu button#mode-number.icon:hover,
+.palette .menu button#mode-game.icon:hover,
 .palette .menu button[id^="lib-"].icon:hover,
 .palette .menu li button[id^="lib-"]:hover,
 .palette .menu li button[id$="-timer-button"]:hover {
@@ -567,8 +571,9 @@ button[id^="lib-"]:hover,
 
 button#mode-draw span,
 button#mode-number span,
-.palette .menu button#mode-draw.icon span,
-.palette .menu button#mode-number.icon span {
+button#mode-game span,
+.palette .menu button#mode-number.icon span,
+.palette .menu button#mode-game.icon span {
   position: static !important;
   display: inline-block !important;
   width: 40px !important;
@@ -589,6 +594,11 @@ button#mode-draw span,
 button#mode-number span,
 .palette .menu button#mode-number.icon span {
   background-image: url(../icons/mode-number.svg) !important;
+}
+
+button#mode-game span,
+.palette .menu button#mode-game.icon span {
+  background-image: url(../icons/mode-game.svg) !important;
 }
 
 button[id^="lib-"] span,
@@ -662,7 +672,7 @@ button[id^="lib-"] span,
   }
 }
 
-  #timer-palette {
+#timer-palette {
   width: max-content;
 }
 

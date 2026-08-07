@@ -1,5 +1,4 @@
-define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon) {
-
+define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon", "activity/modes/game-mode"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon, gameMode) {
 	requirejs(['domReady!'], function (doc) {
 
 		activity.setup();
@@ -181,13 +180,34 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			for (var i = 0; i < dots.length; i++) {
 				var dot = dots[i];
 
-				var dx = mouseX - dot.baseX;
-				var dy = mouseY - dot.baseY;
-				var dist = Math.max(Math.abs(dx), Math.abs(dy));
-				var angle = Math.atan2(dy, dx);
+				var isInfluenced = false;
+				var maxT = 0;
+				var checkInfluence = function(x, y) {
+					var dx = x - dot.baseX;
+					var dy = y - dot.baseY;
+					var dist = Math.max(Math.abs(dx), Math.abs(dy));
+					var angle = Math.atan2(dy, dx);
+					var dirInfluence = influenceRadius * (1.3 + 0.5 * Math.cos(angle * 8));
+					if (dist < dirInfluence) {
+						isInfluenced = true;
+						var t = 1 - (dist / dirInfluence);
+						t = Math.pow(t, 1.5);
+						if (t > maxT) maxT = t;
+					}
+				};
 
-				var dirInfluence = influenceRadius * (1.3 + 0.5 * Math.cos(angle * 8));
-				var isInfluenced = dist < dirInfluence;
+				if (currentMode && typeof currentMode.getPlayerPositions === 'function') {
+					var positions = currentMode.getPlayerPositions();
+					if (positions.length > 0) {
+						for (var p = 0; p < positions.length; p++) {
+							checkInfluence(positions[p].x, positions[p].y);
+						}
+					} else {
+						checkInfluence(mouseX, mouseY);
+					}
+				} else {
+					checkInfluence(mouseX, mouseY);
+				}
 
 				var isCompleted = currentMode && typeof currentMode.isDotCompleted === 'function' && currentMode.isDotCompleted(dot);
 				var isDrawingActive = currentMode && typeof currentMode.isDrawingActive === 'function' && currentMode.isDrawingActive();
@@ -196,9 +216,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					dot.targetR = 0;
 				} else {
 					if (isInfluenced) {
-						var t = 1 - (dist / dirInfluence);
-						t = Math.pow(t, 1.5);
-						dot.targetR = dot.baseR + (maxRadius - dot.baseR) * t;
+						dot.targetR = dot.baseR + (maxRadius - dot.baseR) * maxT;
 					} else {
 						dot.targetR = dot.baseR;
 					}
@@ -492,6 +510,11 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				icon: true,
 				id: "mode-number",
 				label: l10n.get("NumberMode") || "Number Mode"
+			},
+			{
+				icon: true,
+				id: "mode-game",
+				label: l10n.get("GameMode") || "Game Mode"
 			}
 		];
 		var modeButton = document.getElementById('mode-button');
@@ -524,6 +547,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			if (currentMode && typeof currentMode.stopCreatingFigure === 'function') {
 				currentMode.stopCreatingFigure();
 			}
+			if (currentMode && typeof currentMode.deactivate === 'function') {
+				currentMode.deactivate();
+			}
 			currentMode = newMode;
 
 			modeButton.style.backgroundImage = "url('icons/" + iconName + ".svg')";
@@ -537,16 +563,38 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('draw-button').style.display = 'none';
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
+				document.getElementById('restart-button').style.display = 'none';
 				
 				if (typeof newMode.activate === 'function') newMode.activate();
 			
 				updateLibraryMenu();
 				numberMode.showGallery(undefined, l10n, skipBroadcast);
+			} else if (newMode === gameMode) {
+				document.getElementById('colors-button-fill').style.display = 'none';
+				if (colorPaletteFill) colorPaletteFill.popDown();
+				document.getElementById('draw-button').style.display = 'none';
+				document.getElementById('erase-button').style.display = 'none';
+				document.getElementById('clear-button').style.display = 'none';
+				document.getElementById('restart-button').style.display = '';
+				
+				if (typeof newMode.activate === 'function') newMode.activate();
+				
+				if (libraryPalette) libraryPalette.popDown();
+				var gallery = document.getElementById('library-gallery');
+				if (gallery) gallery.style.display = 'none';
+				var formScreen = document.getElementById('category-form-screen');
+				if (formScreen) formScreen.style.display = 'none';
+				var gridCanvas = document.getElementById('gridCanvas');
+				if (gridCanvas) gridCanvas.style.display = '';
+				var playBackBtn = document.getElementById('play-figure-back-button');
+				if (playBackBtn) playBackBtn.style.display = 'none';
+
 			} else {
 				document.getElementById('colors-button-fill').style.display = '';
 				document.getElementById('draw-button').style.display = '';
 				document.getElementById('erase-button').style.display = '';
 				document.getElementById('clear-button').style.display = '';
+				document.getElementById('restart-button').style.display = 'none';
 				
 				if (numberMode && typeof numberMode.deactivate === 'function') numberMode.deactivate();
 				
@@ -581,6 +629,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				switchMode(numberMode, 'mode-number');
 			} else if (selectedId === 'mode-draw') {
 				switchMode(drawMode, 'mode-draw');
+			} else if (selectedId === 'mode-game') {
+				switchMode(gameMode, 'mode-game');
 			}
 		});
 
@@ -656,6 +706,13 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			document.getElementById("draw-button").classList.remove("active");
 		});
 
+		// Handle restart button
+		document.getElementById("restart-button").addEventListener('click', function () {
+			if (currentMode && typeof currentMode.restart === 'function') {
+				currentMode.restart();
+			}
+		});
+
 		// Handle clear button
 		document.getElementById("clear-button").addEventListener('click', function () {
 			if (currentMode && typeof currentMode.clear === 'function') {
@@ -727,6 +784,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			if (modeDrawElem) modeDrawElem.innerHTML = '<span></span>' + (l10n.get("DrawMode") || "Draw Mode");
 			var modeNumElem = document.getElementById("mode-number");
 			if (modeNumElem) modeNumElem.innerHTML = '<span></span>' + (l10n.get("NumberMode") || "Number Mode");
+			var modeGameElem = document.getElementById("mode-game");
+			if (modeGameElem) modeGameElem.innerHTML = '<span></span>' + (l10n.get("GameMode") || "Game Mode");
 			var libBasicElem = document.getElementById("lib-basic-shapes");
 			if (libBasicElem) libBasicElem.innerHTML = l10n.get("BasicShapes") || "Basic Shapes";
 			var libObjElem = document.getElementById("lib-objects");
@@ -738,6 +797,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			document.getElementById("draw-button").title = l10n.get("Draw");
 			document.getElementById("erase-button").title = l10n.get("Erase") || "Erase";
 			document.getElementById("clear-button").title = l10n.get("Clear");
+			document.getElementById("restart-button").title = l10n.get("Restart") || "Restart";
 		});
 
 		// Initialize Shared Grid and Modes
@@ -746,6 +806,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		requestAnimationFrame(renderLoop);
 		drawMode.init(dots, broadcastUpdate, currentFillColor);
 		numberMode.init(dots, broadcastUpdate, currentFillColor);
+		gameMode.init(dots, broadcastUpdate, spacing);
 		if (typeof numberMode.setBuddyColors === 'function') {
 			numberMode.setBuddyColors(buddyStroke, buddyFill);
 		}
