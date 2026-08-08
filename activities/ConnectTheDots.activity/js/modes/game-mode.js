@@ -573,6 +573,9 @@ define([], function () {
 			drawTrail(user);
 			drawTrail(ai);
 
+		},
+
+		drawFrontDots: function (ctx) {
 			// Draw heads
 			var drawHead = function (player) {
 				if (!player || player.isDead) return;
@@ -586,10 +589,6 @@ define([], function () {
 			drawHead(ai);
 		},
 
-		drawFrontDots: function (ctx) {
-			// No front dots rendering needed
-		},
-
 		isDotCompleted: function (dot) {
 			return false; // keep dots active
 		},
@@ -601,6 +600,14 @@ define([], function () {
 			var key = dot.col + "_" + dot.row;
 			if (user.territory.has(key)) return user.color;
 			if (ai.territory.has(key)) return ai.color;
+			for (var i = 0; i < user.trail.length; i++) {
+				if (user.trail[i].c === dot.col && user.trail[i].r === dot.row) return user.color;
+			}
+			for (var i = 0; i < ai.trail.length; i++) {
+				if (ai.trail[i].c === dot.col && ai.trail[i].r === dot.row) return ai.color;
+			}
+			if (Math.round(user.col) === dot.col && Math.round(user.row) === dot.row) return user.color;
+			if (Math.round(ai.col) === dot.col && Math.round(ai.row) === dot.row) return ai.color;
 			return null;
 		},
 
