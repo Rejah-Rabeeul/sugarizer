@@ -78,8 +78,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		return null;
 	}
 
-	function findHoveredPointIndex(mouseX, mouseY) {
+	function findHoveredPointIndex(mouseX, mouseY, targetIdx) {
 		if (!currentDrawing || !currentDrawing.points) return -1;
+		var hoveredIndices = [];
 		for (var i = 0; i < currentDrawing.points.length; i++) {
 			var pt = currentDrawing.points[i];
 			var dot = getDotByIndex(pt[0], pt[1]);
@@ -87,9 +88,15 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				var dx = mouseX - dot.x;
 				var dy = mouseY - dot.y;
 				if (Math.sqrt(dx * dx + dy * dy) < 22.5) {
-					return i;
+					hoveredIndices.push(i);
 				}
 			}
+		}
+		if (hoveredIndices.length > 0) {
+			if (targetIdx !== undefined && hoveredIndices.indexOf(targetIdx) !== -1) {
+				return targetIdx;
+			}
+			return hoveredIndices[0];
 		}
 		return -1;
 	}
@@ -869,7 +876,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				return;
 			}
 
-			var ptIdx = findHoveredPointIndex(mouseX, mouseY);
+			var totalPts = currentDrawing && currentDrawing.points ? currentDrawing.points.length : 0;
+			var targetIdx = (currentStep === totalPts && currentDrawing && currentDrawing.closed) ? 0 : (currentStep < totalPts ? currentStep : -1);
+			var ptIdx = findHoveredPointIndex(mouseX, mouseY, targetIdx);
 			if (ptIdx !== -1) {
 				tryConnectPoint(ptIdx);
 			}
@@ -892,7 +901,9 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				}
 				return;
 			}
-			var ptIdx = findHoveredPointIndex(mouseX, mouseY);
+			var totalPts = currentDrawing && currentDrawing.points ? currentDrawing.points.length : 0;
+			var targetIdx = (currentStep === totalPts && currentDrawing && currentDrawing.closed) ? 0 : (currentStep < totalPts ? currentStep : -1);
+			var ptIdx = findHoveredPointIndex(mouseX, mouseY, targetIdx);
 			if (ptIdx !== -1) {
 				tryConnectPoint(ptIdx);
 			}
@@ -964,7 +975,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 						}
 					}
 				}
-				if (currentDrawing.closed) {
+				if (currentDrawing.closed || currentDrawing.forceFill) {
 					ctx.save();
 					tracePolygonPath(ctx, currentDrawing);
 					if (currentDrawing.fillProgress >= 1500) {
@@ -1023,10 +1034,37 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 		drawFrontDots: function (ctx) {
 			if (!ctx || !currentDrawing || isFinished) return;
 
+			var dotCounts = [];
 			for (var k = 0; k < currentDrawing.points.length; k++) {
 				var pt = currentDrawing.points[k];
 				var dot = getDotByIndex(pt[0], pt[1]);
 				if (dot) {
+					var found = false;
+					for (var i = 0; i < dotCounts.length; i++) {
+						if (dotCounts[i].dot === dot) {
+							dotCounts[i].total++;
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						dotCounts.push({ dot: dot, total: 1, current: 0 });
+					}
+				}
+			}
+
+			for (var k = 0; k < currentDrawing.points.length; k++) {
+				var pt = currentDrawing.points[k];
+				var dot = getDotByIndex(pt[0], pt[1]);
+				if (dot) {
+					var dotInfo = null;
+					for (var i = 0; i < dotCounts.length; i++) {
+						if (dotCounts[i].dot === dot) {
+							dotInfo = dotCounts[i];
+							break;
+						}
+					}
+
 					ctx.save();
 					var isActive = (k === currentStep || (currentStep === currentDrawing.points.length && currentDrawing.closed && k === 0));
 					var dotRadius = isActive ? 10 : 6;
@@ -1042,7 +1080,28 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					ctx.textAlign = "center";
 					ctx.textBaseline = "middle";
 					ctx.fillStyle = "#000000";
-					ctx.fillText(k + 1, dot.x, dot.y - offsetY);
+
+					var textX = dot.x;
+					var textY = dot.y - offsetY;
+
+					if (dotInfo && dotInfo.total > 1) {
+						if (dotInfo.current === 0) {
+							textX = dot.x - offsetY;
+							textY = dot.y - offsetY;
+						} else if (dotInfo.current === 1) {
+							textX = dot.x + offsetY;
+							textY = dot.y - offsetY;
+						} else if (dotInfo.current === 2) {
+							textX = dot.x + offsetY;
+							textY = dot.y + offsetY;
+						} else {
+							textX = dot.x - offsetY;
+							textY = dot.y + offsetY;
+						}
+						dotInfo.current++;
+					}
+
+					ctx.fillText(k + 1, textX, textY);
 					ctx.restore();
 				}
 			}
@@ -1609,7 +1668,7 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 				var shapeEl = document.createElementNS(svgNS, drawing.closed ? "polygon" : "polyline");
 				var attrs = {
 					points: drawing.points.map(function (pt) { return pt[0] + "," + pt[1]; }).join(" "),
-					fill: drawing.closed ? (fill || drawing.fillColor || "#ffcccc") : "none",
+					fill: (drawing.closed || drawing.forceFill) ? (fill || drawing.fillColor || "#ffcccc") : "none",
 					stroke: stroke || drawing.strokeColor || "#cc0000",
 					"stroke-width": Math.max(vBoxW, vBoxH) * 0.06,
 					"stroke-linecap": "round",
