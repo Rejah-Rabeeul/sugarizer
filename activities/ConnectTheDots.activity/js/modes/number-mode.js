@@ -1085,19 +1085,17 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 					var textY = dot.y - offsetY;
 
 					if (dotInfo && dotInfo.total > 1) {
-						if (dotInfo.current === 0) {
-							textX = dot.x - offsetY;
-							textY = dot.y - offsetY;
-						} else if (dotInfo.current === 1) {
-							textX = dot.x + offsetY;
-							textY = dot.y - offsetY;
-						} else if (dotInfo.current === 2) {
-							textX = dot.x + offsetY;
-							textY = dot.y + offsetY;
-						} else {
-							textX = dot.x - offsetY;
-							textY = dot.y + offsetY;
+						var startAngle = (dotInfo.total === 2) ? Math.PI : -(Math.PI * 3 / 4);
+						var angle = (2 * Math.PI / dotInfo.total) * dotInfo.current + startAngle;
+						var radius = offsetY * Math.SQRT2;
+						
+						// Expand radius slightly for many points to prevent overlap
+						if (dotInfo.total > 6) {
+							radius += (dotInfo.total - 6) * 4;
 						}
+						
+						textX = dot.x + Math.cos(angle) * radius;
+						textY = dot.y + Math.sin(angle) * radius;
 						dotInfo.current++;
 					}
 
@@ -1381,14 +1379,6 @@ define(["activity/palettes/timerPalette", "sugar-web/graphics/icon"], function (
 			}
 			var lastPt = pts[pts.length - 1];
 			if (lastPt[0] === col && lastPt[1] === row) return;
-			for (var k = 0; k < pts.length; k++) {
-				if (pts[k][0] === col && pts[k][1] === row) {
-					if (k === 0 && pts.length >= 3) {
-						break;
-					}
-					return;
-				}
-			}
 
 			var firstPt = pts[0];
 			if (pts.length >= 3 && firstPt[0] === col && firstPt[1] === row) {
