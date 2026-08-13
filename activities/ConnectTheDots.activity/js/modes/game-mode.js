@@ -1,4 +1,4 @@
-define([], function () {
+define(["sugar-web/graphics/xocolor"], function (xocolor) {
 	var dots = [];
 	var spacing = 55;
 	var offsetX = 0;
@@ -7,6 +7,9 @@ define([], function () {
 	// Grid
 	var COLS = 15;
 	var ROWS = 13;
+
+	var userColorStroke = '#005fe4';
+	var userColorFill = '#003380';
 
 	var user = null;
 	var ai = null;
@@ -50,9 +53,14 @@ define([], function () {
 		};
 	}
 
-	function restartGame() {
-		user = initPlayer(false, 2, 2, '#005fe4', '#003380', 1, 0);
-		ai = initPlayer(true, COLS - 3, ROWS - 3, '#ff2b34', '#990000', -1, 0);
+	function restartGame(useAi) {
+		user = initPlayer(false, 2, 2, userColorStroke, userColorFill, 1, 0);
+		if (useAi) {
+			var randomAiColor = xocolor.colors[Math.floor(Math.random() * xocolor.colors.length)];
+			ai = initPlayer(true, COLS - 3, ROWS - 3, randomAiColor.stroke, randomAiColor.fill, -1, 0);
+		} else {
+			ai = null;
+		}
 		isGameActive = true;
 	}
 
@@ -129,7 +137,7 @@ define([], function () {
 					player.territory.add(key);
 					// If captured from opponent, remove it from opponent's territory
 					var opp = player.isAi ? user : ai;
-					if (opp.territory.has(key)) {
+					if (opp && opp.territory.has(key)) {
 						opp.territory.delete(key);
 					}
 				}
@@ -139,7 +147,7 @@ define([], function () {
 		// Also remove trail points from opponent's territory if stolen
 		var opp = player.isAi ? user : ai;
 		boundary.forEach(function (key) {
-			if (player.territory.has(key) && opp.territory.has(key)) {
+			if (opp && player.territory.has(key) && opp.territory.has(key)) {
 				opp.territory.delete(key);
 			}
 		});
@@ -171,9 +179,11 @@ define([], function () {
 			var headR = Math.round(p.row);
 			if (Math.abs(p.col - headC) < 0.2 && Math.abs(p.row - headR) < 0.2) {
 				// To check if p hit opp's trail
-				for (var i = 0; i < opp.trail.length; i++) {
-					if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
-						state.oppDead = true; // Opponent's trail was hit, opponent eliminates
+				if (opp) {
+					for (var i = 0; i < opp.trail.length; i++) {
+						if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
+							state.oppDead = true; // Opponent's trail was hit, opponent eliminates
+						}
 					}
 				}
 				// To check if p hit its own trail
@@ -187,20 +197,20 @@ define([], function () {
 		};
 
 		var userStatus = checkCollision(user, ai);
-		var aiStatus = checkCollision(ai, user);
+		var aiStatus = ai ? checkCollision(ai, user) : { pDead: false, oppDead: false };
 
 		var userDead = userStatus.pDead || aiStatus.oppDead;
 		var aiDead = aiStatus.pDead || userStatus.oppDead;
 
 		// Head to head collision
-		if (Math.abs(user.col - ai.col) < 0.5 && Math.abs(user.row - ai.row) < 0.5) {
+		if (ai && Math.abs(user.col - ai.col) < 0.5 && Math.abs(user.row - ai.row) < 0.5) {
 			if (user.trail.length > 0 && ai.trail.length === 0) userDead = true;
 			else if (ai.trail.length > 0 && user.trail.length === 0) aiDead = true;
 			else if (user.territory.size < ai.territory.size) userDead = true;
 			else aiDead = true;
 		}
 
-		if (userDead && aiDead) {
+		if (ai && userDead && aiDead) {
 			// If both somehow die, the one with smaller territory loses
 			if (user.territory.size < ai.territory.size) { aiDead = false; }
 			else { userDead = false; }
@@ -211,7 +221,7 @@ define([], function () {
 			isGameActive = false;
 			user.territory.clear();
 			user.trail = [];
-		} else if (aiDead) {
+		} else if (aiDead && ai) {
 			ai.isDead = true;
 			isGameActive = false;
 			ai.territory.clear();
@@ -437,9 +447,11 @@ define([], function () {
 
 	function updateGame() {
 		if (!isGameActive) return;
-		updatePlayer(user);
-		updateAI(); // AI decides direction before moving
-		updatePlayer(ai);
+		if (user) updatePlayer(user);
+		if (ai) {
+			updateAI(); // AI decides direction before moving
+			updatePlayer(ai);
+		}
 		checkEliminations();
 	}
 
@@ -452,6 +464,10 @@ define([], function () {
 	}
 
 	var GameMode = {
+		setBuddyColors: function(stroke, fill) {
+			userColorStroke = stroke;
+			userColorFill = fill;
+		},
 		init: function (dotsArray, broadcastCallback, activitySpacing) {
 			dots = dotsArray || [];
 			if (activitySpacing !== undefined) {
@@ -470,10 +486,20 @@ define([], function () {
 				COLS = maxCol + 1;
 				ROWS = maxRow + 1;
 			}
-			restartGame();
+			isGameActive = false; // Don't start automatically
 		},
 		activate: function () {
-			restartGame();
+			isGameActive = false; // Don't start automatically
+		},
+		previewGame: function (useAi) {
+			restartGame(useAi);
+			isGameActive = false;
+		},
+		startGame: function (useAi) {
+			if (!user || user.isDead) {
+				restartGame(useAi);
+			}
+			isGameActive = true;
 		},
 		deactivate: function () {
 			isGameActive = false;
@@ -576,7 +602,7 @@ define([], function () {
 		},
 
 		drawFrontDots: function (ctx) {
-			// Draw heads
+			// Draw heads on top of everything
 			var drawHead = function (player) {
 				if (!player || player.isDead) return;
 				var pt = getBaseCoords(player.col, player.row);
@@ -596,18 +622,20 @@ define([], function () {
 			return true;
 		},
 		getDotColor: function (dot) {
-			if (!user || !ai) return null;
+			if (!user) return null;
 			var key = dot.col + "_" + dot.row;
 			if (user.territory.has(key)) return user.color;
-			if (ai.territory.has(key)) return ai.color;
+			if (ai && ai.territory.has(key)) return ai.color;
 			for (var i = 0; i < user.trail.length; i++) {
 				if (user.trail[i].c === dot.col && user.trail[i].r === dot.row) return user.color;
 			}
-			for (var i = 0; i < ai.trail.length; i++) {
-				if (ai.trail[i].c === dot.col && ai.trail[i].r === dot.row) return ai.color;
+			if (ai) {
+				for (var i = 0; i < ai.trail.length; i++) {
+					if (ai.trail[i].c === dot.col && ai.trail[i].r === dot.row) return ai.color;
+				}
 			}
 			if (Math.round(user.col) === dot.col && Math.round(user.row) === dot.row) return user.color;
-			if (Math.round(ai.col) === dot.col && Math.round(ai.row) === dot.row) return ai.color;
+			if (ai && Math.round(ai.col) === dot.col && Math.round(ai.row) === dot.row) return ai.color;
 			return null;
 		},
 
@@ -622,8 +650,18 @@ define([], function () {
 
 		serialize: function () { return {}; },
 		deserialize: function () { },
-		restart: function () {
-			restartGame();
+		addOrRemoveAi: function (useAi) {
+			if (useAi) {
+				if (!ai) {
+					var randomAiColor = xocolor.colors[Math.floor(Math.random() * xocolor.colors.length)];
+					ai = initPlayer(true, COLS - 3, ROWS - 3, randomAiColor.stroke, randomAiColor.fill, -1, 0);
+				}
+			} else {
+				ai = null;
+			}
+		},
+		restart: function (useAi) {
+			restartGame(useAi);
 		}
 	};
 
