@@ -407,6 +407,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				if (numberMode && typeof numberMode.setBuddyColors === 'function') {
 					numberMode.setBuddyColors(buddyStroke, buddyFill);
 				}
+				if (gameMode && typeof gameMode.setBuddyColors === 'function') {
+					gameMode.setBuddyColors(buddyStroke, buddyFill);
+				}
 			}
 
 			// Set current language
@@ -564,6 +567,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
 				document.getElementById('restart-button').style.display = 'none';
+				document.getElementById('robot-button').style.display = 'none';
+				document.getElementById('play-button').style.display = 'none';
 				
 				if (typeof newMode.activate === 'function') newMode.activate();
 			
@@ -575,9 +580,12 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('draw-button').style.display = 'none';
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
-				document.getElementById('restart-button').style.display = '';
+				document.getElementById('restart-button').style.display = 'none';
+				document.getElementById('robot-button').style.display = '';
+				document.getElementById('play-button').style.display = '';
 				
-				if (typeof newMode.activate === 'function') newMode.activate();
+				isGameStarted = false;
+				if (typeof newMode.previewGame === 'function') newMode.previewGame(isRobotOn);
 				
 				if (libraryPalette) libraryPalette.popDown();
 				var gallery = document.getElementById('library-gallery');
@@ -595,6 +603,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('erase-button').style.display = '';
 				document.getElementById('clear-button').style.display = '';
 				document.getElementById('restart-button').style.display = 'none';
+				document.getElementById('robot-button').style.display = 'none';
+				document.getElementById('play-button').style.display = 'none';
 				
 				if (numberMode && typeof numberMode.deactivate === 'function') numberMode.deactivate();
 				
@@ -709,7 +719,11 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		// Handle restart button
 		document.getElementById("restart-button").addEventListener('click', function () {
 			if (currentMode && typeof currentMode.restart === 'function') {
-				currentMode.restart();
+				if (currentMode === gameMode) {
+					currentMode.restart(isRobotOn);
+				} else {
+					currentMode.restart();
+				}
 			}
 		});
 
@@ -728,6 +742,39 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				});
 			}
 			broadcastUpdate();
+		});
+
+		var isRobotOn = false;
+		var isGameStarted = false;
+		var robotButton = document.getElementById('robot-button');
+		var playButton = document.getElementById('play-button');
+
+		robotButton.addEventListener('click', function() {
+			isRobotOn = !isRobotOn;
+			robotButton.style.backgroundImage = "url('icons/" + (isRobotOn ? "robot-on" : "robot-off") + ".svg')";
+			if (currentMode === gameMode) {
+				if (isGameStarted) {
+					if (typeof gameMode.addOrRemoveAi === 'function') {
+						gameMode.addOrRemoveAi(isRobotOn);
+					}
+				} else {
+					if (typeof gameMode.previewGame === 'function') {
+						gameMode.previewGame(isRobotOn);
+					}
+				}
+			}
+		});
+
+		playButton.addEventListener('click', function() {
+			if (!isRobotOn) return; // Prevent starting without opponent
+
+			isGameStarted = true;
+			if (currentMode && typeof currentMode.startGame === 'function') {
+				currentMode.startGame(isRobotOn);
+			}
+			playButton.style.display = 'none';
+			// robotButton remains visible next to restart button
+			document.getElementById('restart-button').style.display = '';
 		});
 
 		// Fullscreen
@@ -794,6 +841,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			document.getElementById("unfullscreen-button").title = l10n.get("Unfullscreen");
 			document.getElementById("help-button").title = l10n.get("Tutorial");
 			document.getElementById("stop-button").title = l10n.get("Stop");
+			document.getElementById("robot-button").title = l10n.get("AIOpponent") || "AI Opponent";
+			document.getElementById("play-button").title = l10n.get("Play") || "Play";
 			document.getElementById("draw-button").title = l10n.get("Draw");
 			document.getElementById("erase-button").title = l10n.get("Erase") || "Erase";
 			document.getElementById("clear-button").title = l10n.get("Clear");
