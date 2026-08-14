@@ -1,4 +1,4 @@
-define(["sugar-web/graphics/xocolor"], function (xocolor) {
+define([], function () {
 	var dots = [];
 	var spacing = 55;
 	var offsetX = 0;
@@ -7,9 +7,6 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 	// Grid
 	var COLS = 15;
 	var ROWS = 13;
-
-	var userColorStroke = '#005fe4';
-	var userColorFill = '#003380';
 
 	var user = null;
 	var ai = null;
@@ -53,14 +50,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 		};
 	}
 
-	function restartGame(useAi) {
-		user = initPlayer(false, 2, 2, userColorStroke, userColorFill, 1, 0);
-		if (useAi) {
-			var randomAiColor = xocolor.colors[Math.floor(Math.random() * xocolor.colors.length)];
-			ai = initPlayer(true, COLS - 3, ROWS - 3, randomAiColor.stroke, randomAiColor.fill, -1, 0);
-		} else {
-			ai = null;
-		}
+	function restartGame() {
+		user = initPlayer(false, 2, 2, '#005fe4', '#003380', 1, 0);
+		ai = initPlayer(true, COLS - 3, ROWS - 3, '#ff2b34', '#990000', -1, 0);
 		isGameActive = true;
 	}
 
@@ -137,7 +129,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 					player.territory.add(key);
 					// If captured from opponent, remove it from opponent's territory
 					var opp = player.isAi ? user : ai;
-					if (opp && opp.territory.has(key)) {
+					if (opp.territory.has(key)) {
 						opp.territory.delete(key);
 					}
 				}
@@ -147,7 +139,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 		// Also remove trail points from opponent's territory if stolen
 		var opp = player.isAi ? user : ai;
 		boundary.forEach(function (key) {
-			if (opp && player.territory.has(key) && opp.territory.has(key)) {
+			if (player.territory.has(key) && opp.territory.has(key)) {
 				opp.territory.delete(key);
 			}
 		});
@@ -179,11 +171,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 			var headR = Math.round(p.row);
 			if (Math.abs(p.col - headC) < 0.2 && Math.abs(p.row - headR) < 0.2) {
 				// To check if p hit opp's trail
-				if (opp) {
-					for (var i = 0; i < opp.trail.length; i++) {
-						if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
-							state.oppDead = true; // Opponent's trail was hit, opponent eliminates
-						}
+				for (var i = 0; i < opp.trail.length; i++) {
+					if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
+						state.oppDead = true; // Opponent's trail was hit, opponent eliminates
 					}
 				}
 				// To check if p hit its own trail
@@ -197,20 +187,20 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 		};
 
 		var userStatus = checkCollision(user, ai);
-		var aiStatus = ai ? checkCollision(ai, user) : { pDead: false, oppDead: false };
+		var aiStatus = checkCollision(ai, user);
 
 		var userDead = userStatus.pDead || aiStatus.oppDead;
 		var aiDead = aiStatus.pDead || userStatus.oppDead;
 
 		// Head to head collision
-		if (ai && Math.abs(user.col - ai.col) < 0.5 && Math.abs(user.row - ai.row) < 0.5) {
+		if (Math.abs(user.col - ai.col) < 0.5 && Math.abs(user.row - ai.row) < 0.5) {
 			if (user.trail.length > 0 && ai.trail.length === 0) userDead = true;
 			else if (ai.trail.length > 0 && user.trail.length === 0) aiDead = true;
 			else if (user.territory.size < ai.territory.size) userDead = true;
 			else aiDead = true;
 		}
 
-		if (ai && userDead && aiDead) {
+		if (userDead && aiDead) {
 			// If both somehow die, the one with smaller territory loses
 			if (user.territory.size < ai.territory.size) { aiDead = false; }
 			else { userDead = false; }
@@ -221,7 +211,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 			isGameActive = false;
 			user.territory.clear();
 			user.trail = [];
-		} else if (aiDead && ai) {
+		} else if (aiDead) {
 			ai.isDead = true;
 			isGameActive = false;
 			ai.territory.clear();
@@ -447,11 +437,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
 	function updateGame() {
 		if (!isGameActive) return;
-		if (user) updatePlayer(user);
-		if (ai) {
-			updateAI(); // AI decides direction before moving
-			updatePlayer(ai);
-		}
+		updatePlayer(user);
+		updateAI(); // AI decides direction before moving
+		updatePlayer(ai);
 		checkEliminations();
 	}
 
@@ -464,10 +452,6 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 	}
 
 	var GameMode = {
-		setBuddyColors: function(stroke, fill) {
-			userColorStroke = stroke;
-			userColorFill = fill;
-		},
 		init: function (dotsArray, broadcastCallback, activitySpacing) {
 			dots = dotsArray || [];
 			if (activitySpacing !== undefined) {
@@ -486,20 +470,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 				COLS = maxCol + 1;
 				ROWS = maxRow + 1;
 			}
-			isGameActive = false; // Don't start automatically
+			restartGame();
 		},
 		activate: function () {
-			isGameActive = false; // Don't start automatically
-		},
-		previewGame: function (useAi) {
-			restartGame(useAi);
-			isGameActive = false;
-		},
-		startGame: function (useAi) {
-			if (!user || user.isDead) {
-				restartGame(useAi);
-			}
-			isGameActive = true;
+			restartGame();
 		},
 		deactivate: function () {
 			isGameActive = false;
@@ -602,7 +576,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 		},
 
 		drawFrontDots: function (ctx) {
-			// Draw heads on top of everything
+			// Draw heads
 			var drawHead = function (player) {
 				if (!player || player.isDead) return;
 				var pt = getBaseCoords(player.col, player.row);
@@ -622,20 +596,18 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 			return true;
 		},
 		getDotColor: function (dot) {
-			if (!user) return null;
+			if (!user || !ai) return null;
 			var key = dot.col + "_" + dot.row;
 			if (user.territory.has(key)) return user.color;
-			if (ai && ai.territory.has(key)) return ai.color;
+			if (ai.territory.has(key)) return ai.color;
 			for (var i = 0; i < user.trail.length; i++) {
 				if (user.trail[i].c === dot.col && user.trail[i].r === dot.row) return user.color;
 			}
-			if (ai) {
-				for (var i = 0; i < ai.trail.length; i++) {
-					if (ai.trail[i].c === dot.col && ai.trail[i].r === dot.row) return ai.color;
-				}
+			for (var i = 0; i < ai.trail.length; i++) {
+				if (ai.trail[i].c === dot.col && ai.trail[i].r === dot.row) return ai.color;
 			}
 			if (Math.round(user.col) === dot.col && Math.round(user.row) === dot.row) return user.color;
-			if (ai && Math.round(ai.col) === dot.col && Math.round(ai.row) === dot.row) return ai.color;
+			if (Math.round(ai.col) === dot.col && Math.round(ai.row) === dot.row) return ai.color;
 			return null;
 		},
 
@@ -650,18 +622,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
 		serialize: function () { return {}; },
 		deserialize: function () { },
-		addOrRemoveAi: function (useAi) {
-			if (useAi) {
-				if (!ai) {
-					var randomAiColor = xocolor.colors[Math.floor(Math.random() * xocolor.colors.length)];
-					ai = initPlayer(true, COLS - 3, ROWS - 3, randomAiColor.stroke, randomAiColor.fill, -1, 0);
-				}
-			} else {
-				ai = null;
-			}
-		},
-		restart: function (useAi) {
-			restartGame(useAi);
+		restart: function () {
+			restartGame();
 		}
 	};
 
