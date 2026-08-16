@@ -581,8 +581,22 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
 				document.getElementById('restart-button').style.display = 'none';
-				document.getElementById('robot-button').style.display = '';
-				document.getElementById('play-button').style.display = '';
+				var rb = document.getElementById('robot-button');
+				rb.style.display = '';
+				rb.disabled = false;
+				rb.style.opacity = 1;
+
+				var pb = document.getElementById('play-button');
+				pb.style.display = '';
+
+				var canPlay = isRobotOn;
+				if (canPlay) {
+					pb.disabled = false;
+					pb.style.opacity = 1;
+				} else {
+					pb.disabled = true;
+					pb.style.opacity = 0.5;
+				}
 				
 				isGameStarted = false;
 				if (typeof newMode.previewGame === 'function') newMode.previewGame(isRobotOn);
@@ -749,31 +763,38 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		var robotButton = document.getElementById('robot-button');
 		var playButton = document.getElementById('play-button');
 
-		robotButton.addEventListener('click', function() {
+		robotButton.addEventListener('click', function () {
+			if (isGameStarted) return;
 			isRobotOn = !isRobotOn;
 			robotButton.style.backgroundImage = "url('icons/" + (isRobotOn ? "robot-on" : "robot-off") + ".svg')";
+			
+			var canPlay = isRobotOn; // Future: check for network players
+			if (canPlay) {
+				playButton.disabled = false;
+				playButton.style.opacity = 1;
+			} else {
+				playButton.disabled = true;
+				playButton.style.opacity = 0.5;
+			}
 			if (currentMode === gameMode) {
-				if (isGameStarted) {
-					if (typeof gameMode.addOrRemoveAi === 'function') {
-						gameMode.addOrRemoveAi(isRobotOn);
-					}
-				} else {
-					if (typeof gameMode.previewGame === 'function') {
-						gameMode.previewGame(isRobotOn);
-					}
+				if (typeof gameMode.previewGame === 'function') {
+					gameMode.previewGame(isRobotOn);
 				}
 			}
 		});
 
-		playButton.addEventListener('click', function() {
-			if (!isRobotOn) return; // Prevent starting without opponent
+		playButton.addEventListener('click', function () {
+			var canPlay = isRobotOn;
+			if (!canPlay) return;
 
 			isGameStarted = true;
+			robotButton.disabled = true;
+			robotButton.style.opacity = 0.5;
+
 			if (currentMode && typeof currentMode.startGame === 'function') {
 				currentMode.startGame(isRobotOn);
 			}
 			playButton.style.display = 'none';
-			// robotButton remains visible next to restart button
 			document.getElementById('restart-button').style.display = '';
 		});
 
