@@ -22,6 +22,12 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		var buddyStroke = '#005fe4';
 		var buddyFill = '#ff2b34';
 		var hasReceivedInit = false;
+		var mySharedSpawnIndex = 0;
+
+		function getMySpawnIndex() {
+			if (!presence) return 0;
+			return mySharedSpawnIndex;
+		}
 
 		function initDots() {
 			dots = [];
@@ -278,6 +284,10 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					if (currentMode === numberMode && typeof numberMode.startChallenge === 'function') {
 						numberMode.startChallenge(120, false); // Auto-start 2 minute challenge
 					}
+					// Reset the board
+					if (currentMode === gameMode && typeof gameMode.previewGame === 'function') {
+						gameMode.previewGame(false, 0, false);
+					}
 				});
 				network.onDataReceived(onNetworkDataReceived);
 				network.onSharedActivityUserChanged(onNetworkUserChanged);
@@ -286,6 +296,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 
 		function setSharedToolbar() {
 			document.getElementById('mode-button').style.display = 'none';
+			document.getElementById('robot-button').style.display = 'none';
 		}
 
 		function broadcastUpdate() {
@@ -303,7 +314,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					user: presence.getUserInfo(),
 					content: {
 						action: 'update',
-						mode: currentMode === numberMode ? 'number' : 'draw',
+						mode: currentMode === numberMode ? 'number' : (currentMode === gameMode ? 'game' : 'draw'),
 						data: currentMode.serialize()
 					}
 				});
@@ -315,20 +326,31 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			if (presence.getUserInfo().networkId === msg.user.networkId) {
 				return;
 			}
-			var targetMode = (msg.content.mode === 'number') ? numberMode : ((msg.content.mode === 'draw') ? drawMode : currentMode);
+			var targetMode = (msg.content.mode === 'number') ? numberMode : ((msg.content.mode === 'game') ? gameMode : ((msg.content.mode === 'draw') ? drawMode : currentMode));
 			if (targetMode !== currentMode && targetMode === numberMode) {
 				switchMode(numberMode, 'mode-number', true);
+			} else if (targetMode !== currentMode && targetMode === gameMode) {
+				switchMode(gameMode, 'mode-game', true);
 			} else if (targetMode !== currentMode && targetMode === drawMode) {
 				switchMode(drawMode, 'mode-draw', true);
 			}
 			switch (msg.content.action) {
 				case 'init':
 					if (hasReceivedInit) break;
+					if (msg.content.targetNetworkId && msg.content.targetNetworkId !== presence.getUserInfo().networkId) break;
 					hasReceivedInit = true;
+					if (msg.content.spawnIndex !== undefined) {
+						mySharedSpawnIndex = msg.content.spawnIndex;
+					}
 					if (currentMode && typeof currentMode.deserialize === 'function') {
 						if (currentMode === numberMode) {
 							currentMode.deserialize(msg.content.data, true);
 							if (typeof currentMode.updateLibraryMenu === 'function') currentMode.updateLibraryMenu();
+						} else if (currentMode === gameMode) {
+							if (typeof gameMode.previewGame === 'function') {
+								gameMode.previewGame(false, mySharedSpawnIndex, true);
+							}
+							currentMode.deserialize(msg.content.data, true, msg.user.networkId);
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures);
 						}
@@ -345,6 +367,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						if (currentMode === numberMode) {
 							currentMode.deserialize(msg.content.data);
 							if (typeof currentMode.updateLibraryMenu === 'function') currentMode.updateLibraryMenu();
+						} else if (currentMode === gameMode) {
+							currentMode.deserialize(msg.content.data, false, msg.user.networkId);
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures, true);
 						}
@@ -359,6 +383,24 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						}
 					}
 					break;
+				case 'start-game':
+					if (currentMode === gameMode && typeof gameMode.startGame === 'function') {
+						isGameStarted = true;
+						var rb = document.getElementById('robot-button');
+						if (rb) {
+							rb.disabled = true;
+							rb.style.opacity = 0.5;
+						}
+						document.getElementById('play-button').style.display = 'none';
+						document.getElementById('restart-button').style.display = isHost ? '' : 'none';
+						gameMode.startGame(false, getMySpawnIndex());
+					}
+					break;
+				case 'restart-game':
+					if (currentMode === gameMode && typeof gameMode.restart === 'function') {
+						gameMode.restart(false, getMySpawnIndex());
+					}
+					break;
 				case 'timer-selected':
 				case 'finish-challenge':
 				case 'figure-completed':
@@ -369,27 +411,44 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					break;
 			}
 		};
+		var nextSpawnIndex = 1;
 
 		// Handle user join/leave
 		var onNetworkUserChanged = function (msg) {
-			if (isHost && msg.move === 1 && currentMode && typeof currentMode.serialize === 'function') {
-				var content = {
-					action: 'init',
-					mode: currentMode === numberMode ? 'number' : 'draw',
-					data: currentMode === numberMode ? currentMode.serialize(true) : currentMode.serialize()
-				};
-				if (currentMode === numberMode && typeof currentMode.getSharedState === 'function') {
-					var state = currentMode.getSharedState();
-					content.challengeActive = state.challengeActive;
-					content.challengeRemaining = state.challengeRemaining;
-					content.challengeDuration = state.challengeDuration;
-					content.challengeScores = state.challengeScores;
-					content.currentChallengeScore = state.currentChallengeScore;
+			if (msg.move === 1 && currentMode && typeof currentMode.serialize === 'function') {
+				if (isHost) {
+					var joinerSpawnIndex = nextSpawnIndex++;
+					var content = {
+						action: 'init',
+						mode: currentMode === numberMode ? 'number' : (currentMode === gameMode ? 'game' : 'draw'),
+						data: currentMode === numberMode ? currentMode.serialize(true) : currentMode.serialize(),
+						spawnIndex: joinerSpawnIndex,
+						targetNetworkId: msg.user.networkId
+					};
+					if (currentMode === numberMode && typeof currentMode.getSharedState === 'function') {
+						var state = currentMode.getSharedState();
+						content.challengeActive = state.challengeActive;
+						content.challengeRemaining = state.challengeRemaining;
+						content.challengeDuration = state.challengeDuration;
+						content.challengeScores = state.challengeScores;
+						content.currentChallengeScore = state.currentChallengeScore;
+					}
+					presence.sendMessage(presence.getSharedInfo().id, {
+						user: presence.getUserInfo(),
+						content: content
+					});
 				}
-				presence.sendMessage(presence.getSharedInfo().id, {
-					user: presence.getUserInfo(),
-					content: content
-				});
+				// All existing players broadcast their state to the new joiner
+				if (hasReceivedInit || isHost) {
+					if (currentMode === gameMode && typeof broadcastUpdate === 'function') {
+						broadcastUpdate();
+					}
+				}
+			}
+			if (msg.move === -1) {
+				if (currentMode === gameMode && typeof gameMode.removeOpponent === 'function') {
+					gameMode.removeOpponent(msg.user.networkId);
+				}
 			}
 			console.log("User " + msg.user.name + " " + (msg.move == 1 ? "join" : "leave"));
 		};
@@ -582,14 +641,17 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('clear-button').style.display = 'none';
 				document.getElementById('restart-button').style.display = 'none';
 				var rb = document.getElementById('robot-button');
-				rb.style.display = '';
-				rb.disabled = false;
-				rb.style.opacity = 1;
+				rb.style.display = 'none';
+				if (!presence) {
+					rb.style.display = '';
+					rb.disabled = false;
+					rb.style.opacity = 1;
+				}
 
 				var pb = document.getElementById('play-button');
-				pb.style.display = '';
+				pb.style.display = (presence && !isHost) ? 'none' : '';
 
-				var canPlay = isRobotOn;
+				var canPlay = presence ? false : isRobotOn;
 				if (canPlay) {
 					pb.disabled = false;
 					pb.style.opacity = 1;
@@ -599,7 +661,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				}
 				
 				isGameStarted = false;
-				if (typeof newMode.previewGame === 'function') newMode.previewGame(isRobotOn);
+				if (typeof newMode.previewGame === 'function') newMode.previewGame(presence ? false : isRobotOn, getMySpawnIndex());
 				
 				if (libraryPalette) libraryPalette.popDown();
 				var gallery = document.getElementById('library-gallery');
@@ -734,10 +796,20 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		document.getElementById("restart-button").addEventListener('click', function () {
 			if (currentMode && typeof currentMode.restart === 'function') {
 				if (currentMode === gameMode) {
-					currentMode.restart(isRobotOn);
+					currentMode.restart(presence ? false : isRobotOn, getMySpawnIndex());
 				} else {
 					currentMode.restart();
 				}
+			}
+			if (presence && currentMode === gameMode) {
+				presence.sendMessage(presence.getSharedInfo().id, {
+					user: presence.getUserInfo(),
+					content: {
+						action: 'restart-game',
+						mode: 'game'
+					}
+				});
+				broadcastUpdate();
 			}
 		});
 
@@ -778,13 +850,17 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			}
 			if (currentMode === gameMode) {
 				if (typeof gameMode.previewGame === 'function') {
-					gameMode.previewGame(isRobotOn);
+					gameMode.previewGame(presence ? false : isRobotOn, getMySpawnIndex());
 				}
 			}
 		});
 
 		playButton.addEventListener('click', function () {
-			var canPlay = isRobotOn;
+			var opponentCount = 0;
+			if (currentMode === gameMode && typeof gameMode.getOpponentCount === 'function') {
+				opponentCount = gameMode.getOpponentCount();
+			}
+			var canPlay = presence ? (isHost && opponentCount > 0) : isRobotOn;
 			if (!canPlay) return;
 
 			isGameStarted = true;
@@ -792,10 +868,21 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			robotButton.style.opacity = 0.5;
 
 			if (currentMode && typeof currentMode.startGame === 'function') {
-				currentMode.startGame(isRobotOn);
+				currentMode.startGame(presence ? false : isRobotOn, getMySpawnIndex());
 			}
 			playButton.style.display = 'none';
-			document.getElementById('restart-button').style.display = '';
+			document.getElementById('restart-button').style.display = (presence && !isHost) ? 'none' : '';
+
+			if (presence) {
+				presence.sendMessage(presence.getSharedInfo().id, {
+					user: presence.getUserInfo(),
+					content: {
+						action: 'start-game',
+						mode: 'game'
+					}
+				});
+				broadcastUpdate();
+			}
 		});
 
 		// Fullscreen
@@ -876,7 +963,21 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		requestAnimationFrame(renderLoop);
 		drawMode.init(dots, broadcastUpdate, currentFillColor);
 		numberMode.init(dots, broadcastUpdate, currentFillColor);
-		gameMode.init(dots, broadcastUpdate, spacing);
+
+		function onGameModeOpponentCountChanged(count) {
+			if (currentMode !== gameMode || isGameStarted) return;
+			if (presence) {
+				var pb = document.getElementById('play-button');
+				if (count > 0 && isHost) {
+					pb.disabled = false;
+					pb.style.opacity = 1;
+				} else {
+					pb.disabled = true;
+					pb.style.opacity = 0.5;
+				}
+			}
+		}
+		gameMode.init(dots, broadcastUpdate, spacing, onGameModeOpponentCountChanged);
 		if (typeof numberMode.setBuddyColors === 'function') {
 			numberMode.setBuddyColors(buddyStroke, buddyFill);
 		}

@@ -10,9 +10,13 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
   var user = null;
   var ai = null;
+  var opponents = {};
+  var onOpponentCountChangedCb = null;
+  var broadcastUpdateCb = null;
+  var lastBroadcastTime = 0;
 
   var isGameActive = false;
-  var speed = 0.03; // Grid units per frame (for speed)
+  var speed = 0.02; // Grid units per frame (speed)
 
   var isMouseDown = false;
 
@@ -51,14 +55,24 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   // Add keyboard listener
   window.addEventListener("keydown", function (e) {
     if (!isGameActive || !user || user.isDead) return;
+    var oldNextDirX = user.nextDir.x;
+    var oldNextDirY = user.nextDir.y;
+
     if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
-      user.nextDir = { x: 0, y: -1 };
+      if (user.dir.y !== 1) user.nextDir = { x: 0, y: -1 };
     } else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
-      user.nextDir = { x: 0, y: 1 };
+      if (user.dir.y !== -1) user.nextDir = { x: 0, y: 1 };
     } else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-      user.nextDir = { x: -1, y: 0 };
+      if (user.dir.x !== 1) user.nextDir = { x: -1, y: 0 };
     } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-      user.nextDir = { x: 1, y: 0 };
+      if (user.dir.x !== -1) user.nextDir = { x: 1, y: 0 };
+    }
+
+    if (
+      (user.nextDir.x !== oldNextDirX || user.nextDir.y !== oldNextDirY) &&
+      broadcastUpdateCb
+    ) {
+      broadcastUpdateCb();
     }
   });
 
@@ -92,33 +106,48 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     };
   }
 
-  function restartGame(isRobotOn) {
-    var midRow = Math.floor(ROWS / 2);
+  function restartGame(isRobotOn, spawnIndex) {
+    spawnIndex = spawnIndex || 0;
+    var spawns = [
+      { c: 0, r: Math.floor(ROWS / 2), dx: 1, dy: 0 },
+      { c: COLS - 1, r: Math.floor(ROWS / 2), dx: -1, dy: 0 },
+      { c: Math.floor(COLS / 2), r: 0, dx: 0, dy: 1 },
+      { c: Math.floor(COLS / 2), r: ROWS - 1, dx: 0, dy: -1 },
+      { c: 0, r: 0, dx: 1, dy: 0 },
+      { c: COLS - 1, r: 0, dx: -1, dy: 0 },
+      { c: 0, r: ROWS - 1, dx: 1, dy: 0 },
+      { c: COLS - 1, r: ROWS - 1, dx: -1, dy: 0 },
+    ];
+    var sp = spawns[spawnIndex % spawns.length];
+
     initAIColors();
     user = initPlayer(
       false,
-      0,
-      midRow,
+      sp.c,
+      sp.r,
       buddyStrokeColor,
       buddyFillColor,
       buddyStrokeColor,
-      1,
-      0,
+      sp.dx,
+      sp.dy,
     );
     if (isRobotOn) {
+      var aiSp = spawns[1];
       ai = initPlayer(
         true,
-        COLS - 1,
-        midRow,
+        aiSp.c,
+        aiSp.r,
         aiStrokeColor,
         aiFillColor,
         aiStrokeColor,
-        -1,
-        0,
+        aiSp.dx,
+        aiSp.dy,
       );
     } else {
       ai = null;
     }
+    opponents = {};
+    if (onOpponentCountChangedCb) onOpponentCountChangedCb(0);
     isGameActive = true;
   }
 
@@ -152,7 +181,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     player.trail = [];
 
     // Identify enclosed territory using an outward flood fill (BFS).
-    // By starting the fill from the grid's outer edges, we map all "outside" space.
+    // By starting the fill from the grid's outer edges, we map all outside space.
     // Any coordinate the fill cannot reach must therefore be enclosed inside the player's loop.
 
     var visited = new Set();
@@ -200,21 +229,36 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         if (!visited.has(key) && !boundary.has(key)) {
           player.territory.add(key);
           // If captured from opponent, remove it from opponent's territory
-          var opp = player.isAi ? user : ai;
-          if (opp.territory.has(key)) {
-            opp.territory.delete(key);
+          if (player !== user && user && user.territory.has(key))
+            user.territory.delete(key);
+          if (player !== ai && ai && ai.territory.has(key))
+            ai.territory.delete(key);
+          var keys = Object.keys(opponents);
+          for (var i = 0; i < keys.length; i++) {
+            var opp = opponents[keys[i]];
+            if (player !== opp && opp.territory.has(key))
+              opp.territory.delete(key);
           }
         }
       }
     }
 
     // Also remove trail points from opponent's territory if stolen
-    var opp = player.isAi ? user : ai;
     boundary.forEach(function (key) {
-      if (player.territory.has(key) && opp.territory.has(key)) {
-        opp.territory.delete(key);
+      if (player !== user && user && user.territory.has(key))
+        user.territory.delete(key);
+      if (player !== ai && ai && ai.territory.has(key))
+        ai.territory.delete(key);
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) {
+        var opp = opponents[keys[i]];
+        if (player !== opp && opp.territory.has(key)) opp.territory.delete(key);
       }
     });
+
+    if (player === user && broadcastUpdateCb) {
+      broadcastUpdateCb();
+    }
   }
 
   function triggerConfetti() {
@@ -227,10 +271,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     }
   }
 
-  function checkEliminations() {
+  function checkEliminations(isSharedMode) {
     if (!isGameActive) return;
 
-    var checkCollision = function (p, opp) {
+    var checkCollision = function (p, oppList) {
       var state = { pDead: false, oppDead: false };
 
       // To check p Hit wall
@@ -238,6 +282,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         state.pDead = true;
         return state;
       }
+
       // To check if trail disconnected from territory or territory eliminated
       if (p.territory.size === 0) {
         state.pDead = true;
@@ -252,10 +297,15 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       var headR = Math.round(p.row);
       if (Math.abs(p.col - headC) < 0.2 && Math.abs(p.row - headR) < 0.2) {
         // To check if p hit opp's trail
-        if (opp) {
-          for (var i = 0; i < opp.trail.length; i++) {
-            if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
-              state.oppDead = true; // Opponent's trail was hit, opponent eliminates
+        if (oppList && oppList.length > 0) {
+          for (var k = 0; k < oppList.length; k++) {
+            var opp = oppList[k];
+            for (var i = 0; i < opp.trail.length; i++) {
+              if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
+                state.oppDead = true; // Opponent's trail was hit, opponent eliminates
+                if (!state.deadOpponents) state.deadOpponents = [];
+                state.deadOpponents.push(opp);
+              }
             }
           }
         }
@@ -270,46 +320,108 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       return state;
     };
 
-    var userStatus = checkCollision(user, ai);
-    var aiStatus = ai
-      ? checkCollision(ai, user)
-      : { pDead: false, oppDead: false };
-
-    var userDead = userStatus.pDead || aiStatus.oppDead;
-    var aiDead = ai ? aiStatus.pDead || userStatus.oppDead : false;
-
-    // Head to head collision
-    if (
-      ai &&
-      Math.abs(user.col - ai.col) < 0.5 &&
-      Math.abs(user.row - ai.row) < 0.5
-    ) {
-      if (user.trail.length > 0 && ai.trail.length === 0) userDead = true;
-      else if (ai.trail.length > 0 && user.trail.length === 0) aiDead = true;
-      else if (user.territory.size < ai.territory.size) userDead = true;
-      else aiDead = true;
+    var oppList = [];
+    if (isSharedMode) {
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) {
+        if (!opponents[keys[i]].isDead) oppList.push(opponents[keys[i]]);
+      }
+    } else if (ai && !ai.isDead) {
+      oppList.push(ai);
     }
 
-    if (ai && userDead && aiDead) {
-      // If both somehow eliminated, the one with smaller territory loses
-      if (user.territory.size < ai.territory.size) {
-        aiDead = false;
-      } else {
-        userDead = false;
+    if (user && !user.isDead) {
+      var userStatus = checkCollision(user, oppList);
+      if (userStatus.pDead) user.isDead = true;
+      if (userStatus.oppDead && userStatus.deadOpponents) {
+        for (var i = 0; i < userStatus.deadOpponents.length; i++) {
+          var deadOpp = userStatus.deadOpponents[i];
+          deadOpp.isDead = true;
+          deadOpp.territory.clear();
+          deadOpp.trail = [];
+        }
       }
     }
 
-    if (userDead) {
-      user.isDead = true;
-      isGameActive = false;
+    if (!isSharedMode && ai && !ai.isDead) {
+      var aiStatus = checkCollision(ai, [user]);
+      if (aiStatus.pDead) ai.isDead = true;
+      if (aiStatus.oppDead) user.isDead = true;
+      if (userStatus && userStatus.oppDead) ai.isDead = true;
+    } else if (isSharedMode) {
+      for (var i = 0; i < oppList.length; i++) {
+        var opp = oppList[i];
+        var oppStatus = checkCollision(opp, [user]);
+        if (oppStatus.oppDead) {
+          user.isDead = true;
+        }
+        if (oppStatus.pDead) {
+          opp.isDead = true;
+          opp.territory.clear();
+          opp.trail = [];
+        }
+      }
+    }
+
+    // Head to head collision
+    if (user && !user.isDead) {
+      for (var i = 0; i < oppList.length; i++) {
+        var opp = oppList[i];
+        if (opp.isDead) continue;
+        if (
+          Math.abs(user.col - opp.col) < 0.5 &&
+          Math.abs(user.row - opp.row) < 0.5
+        ) {
+          if (user.trail.length > 0 && opp.trail.length === 0)
+            user.isDead = true;
+          else if (opp.trail.length > 0 && user.trail.length === 0) {
+            opp.isDead = true;
+            opp.territory.clear();
+            opp.trail = [];
+          } else if (user.territory.size < opp.territory.size)
+            user.isDead = true;
+          else if (user.territory.size > opp.territory.size) {
+            opp.isDead = true;
+            opp.territory.clear();
+            opp.trail = [];
+          } else {
+            user.isDead = true;
+            opp.isDead = true;
+            opp.territory.clear();
+            opp.trail = [];
+          }
+        }
+      }
+    }
+
+    if (user && user.isDead) {
+      if (!isSharedMode) isGameActive = false;
       user.territory.clear();
       user.trail = [];
-    } else if (aiDead && ai) {
-      ai.isDead = true;
+    } else if (!isSharedMode && ai && ai.isDead) {
       isGameActive = false;
       ai.territory.clear();
       ai.trail = [];
       triggerConfetti();
+    }
+
+    if (isSharedMode) {
+      // Check if only 1 player is alive
+      var aliveCount = 0;
+      var oppKeys = Object.keys(opponents);
+      for (var i = 0; i < oppKeys.length; i++) {
+        if (!opponents[oppKeys[i]].isDead) aliveCount++;
+      }
+      if (user && !user.isDead) aliveCount++;
+
+      if ((oppKeys.length > 0 || (user && user.isDead)) && aliveCount === 1) {
+        isGameActive = false;
+        if (user && !user.isDead) {
+          triggerConfetti();
+        }
+      } else if (aliveCount === 0 && oppKeys.length > 0) {
+        isGameActive = false;
+      }
     }
   }
 
@@ -568,12 +680,40 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   function updateGame() {
     if (!isGameActive) return;
     updatePlayer(user);
-    if (ai) {
+
+    var isSharedMode =
+      Object.keys(opponents).length > 0 ||
+      (broadcastUpdateCb &&
+        document.getElementById("robot-button").style.display === "none");
+
+    if (!isSharedMode && ai) {
       updateAI();
       updatePlayer(ai);
+    } else if (isSharedMode) {
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) {
+        var opp = opponents[keys[i]];
+        if (!opp.isDead) {
+          updatePlayer(opp);
+        }
+      }
     }
 
-    checkEliminations();
+    checkEliminations(isSharedMode);
+
+    // Broadcast after eliminations
+    if (isSharedMode) {
+      var now = Date.now();
+      if (now - lastBroadcastTime > 100) {
+        if (broadcastUpdateCb && (!user || !user.isDead)) broadcastUpdateCb();
+        lastBroadcastTime = now;
+      }
+      // Send one final broadcast when user eliminates
+      if (user && user.isDead && broadcastUpdateCb && !user.deathBroadcasted) {
+        broadcastUpdateCb();
+        user.deathBroadcasted = true;
+      }
+    }
   }
 
   function drawRect(ctx, c, r, color, padding) {
@@ -585,11 +725,18 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   }
 
   var GameMode = {
-    init: function (dotsArray, broadcastCallback, activitySpacing) {
+    init: function (
+      dotsArray,
+      broadcastCallback,
+      activitySpacing,
+      onOpponentCountChanged,
+    ) {
       dots = dotsArray || [];
       if (activitySpacing !== undefined) {
         spacing = activitySpacing;
       }
+      broadcastUpdateCb = broadcastCallback;
+      onOpponentCountChangedCb = onOpponentCountChanged;
       if (dots.length > 0) {
         offsetX = dots[0].baseX;
         offsetY = dots[0].baseY;
@@ -677,19 +824,26 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           ctx.fillRect(startX, startY, barWidth * userPct, barHeight);
         }
 
-        if (aiPct > 0) {
-          ctx.fillStyle = ai.fillColor;
-          ctx.fillRect(
-            startX + barWidth - barWidth * aiPct,
-            startY,
-            barWidth * aiPct,
-            barHeight,
-          );
+        var keys = Object.keys(opponents);
+        var hasOpponents = keys.length > 0;
+        var aiRender = hasOpponents ? opponents[keys[0]] : ai;
+        if (aiRender) {
+          var aiPct = aiRender.territory.size / total;
+          if (aiPct > 0) {
+            ctx.fillStyle = aiRender.fillColor;
+            ctx.fillRect(
+              startX + barWidth - barWidth * aiPct,
+              startY,
+              barWidth * aiPct,
+              barHeight,
+            );
+          }
         }
       }
 
       // Draw territory
       var drawTerritory = function (player) {
+        if (!player || player.isDead) return;
         player.territory.forEach(function (key) {
           var parts = key.split("_");
           var c = parseInt(parts[0]);
@@ -699,10 +853,12 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       };
       if (user) drawTerritory(user);
       if (ai) drawTerritory(ai);
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) drawTerritory(opponents[keys[i]]);
 
       // Draw trails
       var drawTrail = function (player) {
-        if (!player || player.trail.length === 0) return;
+        if (!player || player.isDead || player.trail.length === 0) return;
         ctx.beginPath();
         ctx.strokeStyle = player.strokeColor;
         ctx.lineWidth = 15;
@@ -721,8 +877,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         ctx.lineTo(head.x, head.y);
         ctx.stroke();
       };
-      drawTrail(user);
-      drawTrail(ai);
+      if (user) drawTrail(user);
+      if (ai) drawTrail(ai);
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) drawTrail(opponents[keys[i]]);
     },
 
     drawFrontDots: function (ctx) {
@@ -735,8 +893,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2);
         ctx.fill();
       };
-      drawHead(user);
-      drawHead(ai);
+      if (user) drawHead(user);
+      if (ai) drawHead(ai);
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) drawHead(opponents[keys[i]]);
     },
 
     isDotCompleted: function (dot) {
@@ -748,6 +908,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     getDotColor: function (dot) {
       if (!user) return null;
       var key = dot.col + "_" + dot.row;
+
       for (var i = 0; i < user.trail.length; i++) {
         if (user.trail[i].c === dot.col && user.trail[i].r === dot.row)
           return user.strokeColor;
@@ -758,8 +919,25 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
             return ai.strokeColor;
         }
       }
-      if (user.territory.has(key)) return user.fillColor;
-      if (ai && ai.territory.has(key)) return ai.fillColor;
+      var keys = Object.keys(opponents);
+      for (var j = 0; j < keys.length; j++) {
+        var opp = opponents[keys[j]];
+        if (!opp.isDead) {
+          for (var i = 0; i < opp.trail.length; i++) {
+            if (opp.trail[i].c === dot.col && opp.trail[i].r === dot.row)
+              return opp.strokeColor;
+          }
+        }
+      }
+
+      if (user && user.territory.has(key) && !user.isDead)
+        return user.fillColor;
+      if (ai && ai.territory.has(key) && !ai.isDead) return ai.fillColor;
+      var keys = Object.keys(opponents);
+      for (var j = 0; j < keys.length; j++) {
+        if (opponents[keys[j]].territory.has(key) && !opponents[keys[j]].isDead)
+          return opponents[keys[j]].fillColor;
+      }
       return null;
     },
 
@@ -772,42 +950,130 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     },
 
     serialize: function () {
-      return {};
+      if (!user) return {};
+      return {
+        col: user.col,
+        row: user.row,
+        dir: user.dir,
+        nextDir: user.nextDir,
+        strokeColor: user.strokeColor,
+        fillColor: user.fillColor,
+        trail: user.trail,
+        territory: Array.from(user.territory),
+        isDead: user.isDead,
+        lastSafe: user.lastSafe,
+      };
     },
-    deserialize: function () {},
-    restart: function (isRobotOn) {
-      restartGame(isRobotOn);
+    deserialize: function (data, isInit, networkId) {
+      if (!networkId || !data) return;
+      var isNewOpponent = false;
+      if (!opponents[networkId]) {
+        // New opponent
+        var stroke = data.strokeColor || "#ff2b34";
+        var fill = data.fillColor || "#990000";
+        opponents[networkId] = initPlayer(
+          true,
+          data.col,
+          data.row,
+          stroke,
+          fill,
+          stroke,
+          data.dir.x,
+          data.dir.y,
+        );
+        if (onOpponentCountChangedCb)
+          onOpponentCountChangedCb(Object.keys(opponents).length);
+        isNewOpponent = true;
+      }
+
+      var opp = opponents[networkId];
+      opp.strokeColor = data.strokeColor;
+      opp.fillColor = data.fillColor;
+      opp.headColor = data.strokeColor;
+
+      var resurrected = false;
+      if (data.isDead && !opp.isDead) {
+        opp.isDead = true;
+        opp.territory.clear();
+        opp.trail = [];
+      } else if (!data.isDead && opp.isDead) {
+        opp.isDead = false;
+        resurrected = true;
+      }
+
+      if (!opp.isDead) {
+        opp.nextDir = data.nextDir;
+        var dist = Math.abs(opp.col - data.col) + Math.abs(opp.row - data.row);
+        var trailCleared = opp.trail.length > 0 && data.trail.length === 0;
+        if (
+          dist > 0.5 ||
+          trailCleared ||
+          isInit ||
+          isNewOpponent ||
+          resurrected
+        ) {
+          opp.col = data.col;
+          opp.row = data.row;
+          opp.dir = data.dir;
+          opp.trail = data.trail;
+          opp.territory = new Set(data.territory);
+          opp.lastSafe = data.lastSafe;
+        } else {
+          opp.territory = new Set(data.territory); // Keep territory in sync
+        }
+      }
     },
-    previewGame: function (isRobotOn) {
-      var midRow = Math.floor(ROWS / 2);
+    restart: function (isRobotOn, spawnIndex) {
+      restartGame(isRobotOn, spawnIndex);
+    },
+    previewGame: function (isRobotOn, spawnIndex, keepOpponents) {
+      spawnIndex = spawnIndex || 0;
+      var spawns = [
+        { c: 0, r: Math.floor(ROWS / 2), dx: 1, dy: 0 },
+        { c: COLS - 1, r: Math.floor(ROWS / 2), dx: -1, dy: 0 },
+        { c: Math.floor(COLS / 2), r: 0, dx: 0, dy: 1 },
+        { c: Math.floor(COLS / 2), r: ROWS - 1, dx: 0, dy: -1 },
+        { c: 0, r: 0, dx: 1, dy: 0 },
+        { c: COLS - 1, r: 0, dx: -1, dy: 0 },
+        { c: 0, r: ROWS - 1, dx: 1, dy: 0 },
+        { c: COLS - 1, r: ROWS - 1, dx: -1, dy: 0 },
+      ];
+      var sp = spawns[spawnIndex % spawns.length];
+
       initAIColors();
       user = initPlayer(
         false,
-        0,
-        midRow,
+        sp.c,
+        sp.r,
         buddyStrokeColor,
         buddyFillColor,
         buddyStrokeColor,
-        1,
-        0,
+        sp.dx,
+        sp.dy,
       );
       if (isRobotOn) {
+        var aiSp = spawns[1];
         ai = initPlayer(
           true,
-          COLS - 1,
-          midRow,
+          aiSp.c,
+          aiSp.r,
           aiStrokeColor,
           aiFillColor,
           aiStrokeColor,
-          -1,
-          0,
+          aiSp.dx,
+          aiSp.dy,
         );
       } else {
         ai = null;
       }
+      if (!keepOpponents) {
+        opponents = {};
+        if (onOpponentCountChangedCb) onOpponentCountChangedCb(0);
+      }
       isGameActive = false;
+      if (broadcastUpdateCb) broadcastUpdateCb();
     },
-    startGame: function (isRobotOn) {
+    startGame: function (isRobotOn, spawnIndex) {
       isGameActive = true;
     },
     addOrRemoveAi: function (isRobotOn) {
@@ -827,6 +1093,16 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           );
       } else {
         ai = null;
+      }
+    },
+    getOpponentCount: function () {
+      return Object.keys(opponents).length;
+    },
+    removeOpponent: function (networkId) {
+      if (opponents[networkId]) {
+        delete opponents[networkId];
+        if (onOpponentCountChangedCb)
+          onOpponentCountChangedCb(Object.keys(opponents).length);
       }
     },
     setBuddyColors: function (stroke, fill) {
