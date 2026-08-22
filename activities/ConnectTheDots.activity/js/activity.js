@@ -349,6 +349,20 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					if (msg.content.spawnIndex !== undefined) {
 						mySharedSpawnIndex = msg.content.spawnIndex;
 					}
+					if (msg.content.gameSpeed !== undefined && currentMode === gameMode && typeof gameMode.setSpeed === 'function') {
+						gameMode.setSpeed(msg.content.gameSpeed);
+					}
+					if (msg.content.totalUsers !== undefined && typeof gameMode.setTotalPlayers === 'function') {
+						gameMode.setTotalPlayers(msg.content.totalUsers);
+					}
+					if (presence && presence.getSharedInfo && typeof gameMode.setTotalPlayers === 'function') {
+						var sharedInfo = presence.getSharedInfo();
+						if (sharedInfo && sharedInfo.id) {
+							presence.listSharedActivityUsers(sharedInfo.id, function(users) {
+								gameMode.setTotalPlayers(users.length);
+							});
+						}
+					}
 					if (currentMode && typeof currentMode.deserialize === 'function') {
 						if (currentMode === numberMode) {
 							currentMode.deserialize(msg.content.data, true);

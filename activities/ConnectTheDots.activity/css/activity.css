@@ -1,11 +1,10 @@
 /* Activity button icon */
 #main-toolbar #activity-button {
-	background-image: url(../activity/activity-icon.svg);
+  background-image: url(../activity/activity-icon.svg);
 }
 
-
 #main-toolbar #network-button {
-	background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
+  background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
 }
 
 #main-toolbar #mode-button {
@@ -80,7 +79,7 @@
   background-color: #fbe3c3;
   padding: 15px;
   border-radius: 6px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
   font-weight: bold;
   font-size: 26px;
@@ -142,13 +141,15 @@
   aspect-ratio: 1 / 1;
   background: #ffffff;
   border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s;
   padding: 8px 0;
   box-sizing: border-box;
   overflow: hidden;
@@ -156,7 +157,7 @@
 
 .gallery-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
 .gallery-card-info-bar {
@@ -222,7 +223,9 @@
   height: 85px;
   cursor: pointer;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s;
 }
 
 .btn-add-figure:hover {
@@ -284,20 +287,20 @@
 }
 
 #main-toolbar #draw-button {
-	background-image: url(../icons/tool-pencil.svg);
+  background-image: url(../icons/tool-pencil.svg);
 }
 
 #main-toolbar #erase-button {
-	background-image: url(../icons/tool-eraser.svg);
+  background-image: url(../icons/tool-eraser.svg);
 }
 
 #main-toolbar #clear-button {
-	background-image: url(../icons/edit-clear.svg);
+  background-image: url(../icons/edit-clear.svg);
 }
 
 /* Fullscreen button icon */
 #main-toolbar #fullscreen-button {
-	background-image: url(../icons/view-fullscreen.svg);
+  background-image: url(../icons/view-fullscreen.svg);
 }
 
 #unfullscreen-button {
@@ -314,77 +317,75 @@
   z-index: 3;
 }
 
-
 #private-button {
-	background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
-	width: 47px;
-	height: 47px;
-	margin: 4px 2px;
-	color: transparent;
-	background-color: transparent;
-	background-position: center;
-	background-repeat: no-repeat;
-	background-size: contain;
-	border: 0;
-	border-radius: 5.5px;
+  background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-home.svg);
+  width: 47px;
+  height: 47px;
+  margin: 4px 2px;
+  color: transparent;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: 0;
+  border-radius: 5.5px;
 }
 
 #shared-button {
-	background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-neighborhood.svg);
-	width: 47px;
-	height: 47px;
-	margin: 4px 2px;
-	color: transparent;
-	background-color: transparent;
-	background-position: center;
-	background-repeat: no-repeat;
-	background-size: contain;
-	border: 0;
-	border-radius: 5.5px;
+  background-image: url(../lib/sugar-web/graphics/icons/actions/zoom-neighborhood.svg);
+  width: 47px;
+  height: 47px;
+  margin: 4px 2px;
+  color: transparent;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: 0;
+  border-radius: 5.5px;
 }
 
-
 /* Layout */
-html, body {
-	margin: 0;
-	padding: 0;
-	width: 100%;
-	height: 100%;
-	overflow: hidden;
-	background-color: #c0c0c0;
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #c0c0c0;
 }
 
 #canvas {
-	width: 100%;
-	height: calc(100vh - 55px);
-	background-color: #c0c0c0;
-	overflow: hidden;
+  width: 100%;
+  height: calc(100vh - 55px);
+  background-color: #c0c0c0;
+  overflow: hidden;
 }
 
 #gridCanvas {
-	display: block;
+  display: block;
   margin: 0 auto;
-	background-color: #f0f0f0;
+  background-color: #f0f0f0;
 }
 
 /* Ensure palettes show above canvas */
 .palette {
-	z-index: 9999;
+  z-index: 9999;
 }
 
-
 #main-toolbar #help-button {
-	background-image: url(../icons/help.svg);
+  background-image: url(../icons/help.svg);
 }
 
 /* UI styling for introJs-tutorial */
 .introjs-overlay {
   background-color: #000 !important;
-  opacity: .8 !important;
+  opacity: 0.8 !important;
 }
 
 .introjs-tooltip {
-  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif!important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   border-radius: 6px !important;
   padding: 2px 1px !important;
   font-size: 14px !important;
@@ -396,8 +397,8 @@ html, body {
 }
 
 .customTooltip .introjs-tooltip-header {
-  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
-  color : #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #ffffff;
   text-shadow: none;
   background-color: #808080;
   margin: 0;
@@ -453,7 +454,7 @@ html, body {
 
 .customTooltip .introjs-tooltipbuttons {
   display: flex;
-  flex-wrap:wrap;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   cursor: pointer;
@@ -477,8 +478,8 @@ html, body {
 }
 
 .customTooltip .introjs-button:focus {
-  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, .5);
-  box-shadow: 0 0 0 0rem rgba(158, 158, 158, .5);
+  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
   border: 0px;
   background-color: #808080 !important;
 }
@@ -486,12 +487,12 @@ html, body {
 .customTooltip .introjs-disabled {
   color: black !important;
   border: 0px;
-  opacity: .65;
+  opacity: 0.65;
 }
 
 .customTooltip .introjs-disabled:focus {
-  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, .5);
-  box-shadow: 0 0 0 0rem rgba(158, 158, 158, .5);
+  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
   border: 0px;
 }
 
@@ -690,4 +691,131 @@ button[id^="lib-"] span,
 .palette .menu li button.palette-item-selected {
   font-weight: bold;
   background-color: #808080 !important;
+}
+
+/* UI styling for introJs tutorial */
+
+.introjs-overlay {
+  background-color: #000 !important;
+  opacity: 0.8 !important;
+}
+
+.introjs-tooltip {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  border-radius: 6px !important;
+  padding: 2px 1px !important;
+  font-size: 14px !important;
+}
+
+.introjs-helperLayer {
+  background: inherit !important;
+  opacity: 0.6 !important;
+}
+
+.customTooltip .introjs-tooltip-header {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #ffffff;
+  text-shadow: none;
+  background-color: #808080;
+  margin: 0;
+  padding: 5px 35px 5px 10px;
+  border-bottom: 1px solid #ebebeb;
+  border-radius: 5px 5px 0 0;
+  position: relative;
+  min-height: 1.5em;
+}
+
+.customTooltip .introjs-tooltip-title {
+  font-size: 14px;
+  padding: 0px 8px;
+  font-weight: 800;
+}
+
+.customTooltip .introjs-tooltiptext {
+  color: #000000;
+  line-height: 1.42857143;
+}
+
+.customTooltip .introjs-skipbutton {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  cursor: pointer;
+  background-image: url(../icons/dialog-cancel.svg);
+  width: 25px;
+  height: 25px;
+  background-size: 25px 25px;
+  padding: 0px;
+  white-space: nowrap;
+  color: transparent;
+  line-height: 27px;
+}
+
+.customTooltip .introjs-nextbutton::before {
+  content: " ";
+  margin-right: 6px;
+  background-image: url(../icons/go-right.svg);
+  width: 20px;
+  height: 20px;
+  background-size: 20px 20px;
+}
+
+.customTooltip .introjs-prevbutton::before {
+  content: " ";
+  margin-right: 6px;
+  background-image: url(../icons/go-left.svg);
+  width: 20px;
+  height: 20px;
+  background-size: 20px 20px;
+}
+
+.customTooltip .introjs-tooltipbuttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border-top: 0px;
+  padding: 0px;
+  text-align: center;
+  white-space: normal;
+}
+
+.customTooltip .introjs-button {
+  text-shadow: none;
+  border-radius: 22px;
+  margin: 5px 8px 8px 8px;
+  width: fit-content;
+  background-color: #808080 !important;
+  display: flex !important;
+  align-items: center !important;
+  color: white !important;
+  padding: 6px 20px 6px 10px;
+  border: 0px;
+}
+
+.customTooltip .introjs-button:focus {
+  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  border: 0px;
+  background-color: #808080 !important;
+}
+
+.customTooltip .introjs-disabled {
+  color: black !important;
+  border: 0px;
+  opacity: 0.65;
+}
+
+.customTooltip .introjs-disabled:focus {
+  -webkit-box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  box-shadow: 0 0 0 0rem rgba(158, 158, 158, 0.5);
+  border: 0px;
+}
+
+/* Fix for transparent icon buttons in tutorial */
+.gallery-card-info-bar .edit-btn.introjs-showElement,
+.gallery-card-info-bar .delete-btn.introjs-showElement {
+  background-color: white !important;
+  border-radius: 4px;
 }
