@@ -1,4 +1,4 @@
-define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon", "activity/modes/game-mode"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon, gameMode) {
+define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon", "activity/modes/game-mode", "activity/palettes/speedPalette"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon, gameMode, speedPalette) {
 	requirejs(['domReady!'], function (doc) {
 
 		activity.setup();
@@ -174,13 +174,17 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				prevMouseY = -1000;
 			});
 		}
-
+		var lastTime = Date.now();
 		function renderLoop() {
+			var now = Date.now();
+			var delta = now - lastTime;
+			lastTime = now;
+			
 			if (!ctx) return;
 			ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
 			if (currentMode && typeof currentMode.drawBehindDots === 'function') {
-				currentMode.drawBehindDots(ctx);
+				currentMode.drawBehindDots(ctx, delta);
 			}
 
 			for (var i = 0; i < dots.length; i++) {
@@ -297,6 +301,9 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		function setSharedToolbar() {
 			document.getElementById('mode-button').style.display = 'none';
 			document.getElementById('robot-button').style.display = 'none';
+			if (!isHost) {
+				document.getElementById('speed-button').style.display = 'none';
+			}
 		}
 
 		function broadcastUpdate() {
@@ -409,6 +416,21 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						currentMode.handleNetworkMessage(msg);
 					}
 					break;
+				case 'update-spawns':
+					if (typeof gameMode.setTotalPlayers === 'function') {
+						gameMode.setTotalPlayers(msg.content.totalUsers);
+						if (currentMode === gameMode && typeof gameMode.previewGame === 'function') {
+							if (!isGameStarted) {
+								gameMode.previewGame(false, mySharedSpawnIndex, true);
+							}
+						}
+					}
+					break;
+				case 'update-speed':
+					if (currentMode === gameMode && typeof gameMode.setSpeed === 'function') {
+						gameMode.setSpeed(msg.content.speed);
+					}
+					break;
 			}
 		};
 		var nextSpawnIndex = 1;
@@ -418,11 +440,21 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			if (msg.move === 1 && currentMode && typeof currentMode.serialize === 'function') {
 				if (isHost) {
 					var joinerSpawnIndex = nextSpawnIndex++;
+					if (typeof gameMode.setTotalPlayers === 'function') {
+						gameMode.setTotalPlayers(nextSpawnIndex);
+					}
+					if (currentMode === gameMode && typeof gameMode.previewGame === 'function') {
+						if (!isGameStarted) {
+							gameMode.previewGame(false, mySharedSpawnIndex, true);
+						}
+					}
 					var content = {
 						action: 'init',
 						mode: currentMode === numberMode ? 'number' : (currentMode === gameMode ? 'game' : 'draw'),
 						data: currentMode === numberMode ? currentMode.serialize(true) : currentMode.serialize(),
 						spawnIndex: joinerSpawnIndex,
+						totalUsers: nextSpawnIndex,
+						gameSpeed: currentMode === gameMode && typeof gameMode.getSpeed === 'function' ? gameMode.getSpeed() : undefined,
 						targetNetworkId: msg.user.networkId
 					};
 					if (currentMode === numberMode && typeof currentMode.getSharedState === 'function') {
@@ -436,6 +468,15 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 					presence.sendMessage(presence.getSharedInfo().id, {
 						user: presence.getUserInfo(),
 						content: content
+					});
+					
+					// Broadcast new players to all existing players
+					presence.sendMessage(presence.getSharedInfo().id, {
+						user: presence.getUserInfo(),
+						content: {
+							action: 'update-spawns',
+							totalUsers: nextSpawnIndex
+						}
 					});
 				}
 				// All existing players broadcast their state to the new joiner
@@ -627,6 +668,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('clear-button').style.display = 'none';
 				document.getElementById('restart-button').style.display = 'none';
 				document.getElementById('robot-button').style.display = 'none';
+				document.getElementById('speed-button').style.display = 'none';
 				document.getElementById('play-button').style.display = 'none';
 				
 				if (typeof newMode.activate === 'function') newMode.activate();
@@ -642,6 +684,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('restart-button').style.display = 'none';
 				var rb = document.getElementById('robot-button');
 				rb.style.display = 'none';
+				document.getElementById('speed-button').style.display = (((currentenv && currentenv.sharedId) || presence) && !isHost) ? 'none' : '';
 				if (!presence) {
 					rb.style.display = '';
 					rb.disabled = false;
@@ -680,6 +723,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('clear-button').style.display = '';
 				document.getElementById('restart-button').style.display = 'none';
 				document.getElementById('robot-button').style.display = 'none';
+				document.getElementById('speed-button').style.display = 'none';
 				document.getElementById('play-button').style.display = 'none';
 				
 				if (numberMode && typeof numberMode.deactivate === 'function') numberMode.deactivate();
@@ -768,6 +812,39 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			}
 		});
 		colorPaletteFill.setColor(0);
+		// Speed palette for Game Mode
+		var speedButton = document.getElementById('speed-button');
+		var speedPal = new speedPalette.SpeedPalette(speedButton, undefined);
+		var lastSpeedSend = 0;
+		speedButton.addEventListener('speedChanged', function (e) {
+			if (currentMode === gameMode && typeof gameMode.setSpeed === 'function') {
+				gameMode.setSpeed(e.detail.speed);
+				if (isHost && presence && presence.getSharedInfo()) {
+					var now = Date.now();
+					if (now - lastSpeedSend > 150) {
+						presence.sendMessage(presence.getSharedInfo().id, {
+							user: presence.getUserInfo(),
+							content: {
+								action: 'update-speed',
+								speed: e.detail.speed
+							}
+						});
+						lastSpeedSend = now;
+					}
+					if (window.speedSyncTimer) clearTimeout(window.speedSyncTimer);
+					window.speedSyncTimer = setTimeout(function () {
+						presence.sendMessage(presence.getSharedInfo().id, {
+							user: presence.getUserInfo(),
+							content: {
+								action: 'update-speed',
+								speed: e.detail.speed
+							}
+						});
+						lastSpeedSend = Date.now();
+					}, 200);
+				}
+			}
+		});
 
 		// Handle click on help-button
 		document.getElementById("help-button").addEventListener('click', function (e) {

@@ -12,11 +12,12 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   var ai = null;
   var opponents = {};
   var onOpponentCountChangedCb = null;
+  var sharedTotalPlayers = 1;
   var broadcastUpdateCb = null;
   var lastBroadcastTime = 0;
 
   var isGameActive = false;
-  var speed = 0.02; // Grid units per frame (speed)
+  var speed = 0.05; // Grid units per frame (speed)
 
   var isMouseDown = false;
 
@@ -99,25 +100,44 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       strokeColor: strokeColor,
       fillColor: fillColor,
       headColor: headColor,
-      territory: territory,
+      territory: new Set([startCol + "_" + startRow]),
+      territoryVersion: 1,
       trail: [], // array of {c, r} points
       isDead: false,
       lastSafe: { c: startCol, r: startRow },
     };
   }
 
+  function getSpawns() {
+    var p5 = sharedTotalPlayers >= 5;
+    var p6 = sharedTotalPlayers >= 6;
+    var p7 = sharedTotalPlayers >= 7;
+    var p8 = sharedTotalPlayers >= 8;
+    return [
+      { c: 0, r: Math.floor(p5 ? (ROWS * 2) / 3 : ROWS / 2), dx: 1, dy: 0 },
+      {
+        c: COLS - 1,
+        r: Math.floor(p6 ? (ROWS * 2) / 3 : ROWS / 2),
+        dx: -1,
+        dy: 0,
+      },
+      { c: Math.floor(p7 ? (COLS * 2) / 3 : COLS / 2), r: 0, dx: 0, dy: 1 },
+      {
+        c: Math.floor(p8 ? (COLS * 2) / 3 : COLS / 2),
+        r: ROWS - 1,
+        dx: 0,
+        dy: -1,
+      },
+      { c: 0, r: Math.floor(ROWS / 3), dx: 1, dy: 0 },
+      { c: COLS - 1, r: Math.floor(ROWS / 3), dx: -1, dy: 0 },
+      { c: Math.floor(COLS / 3), r: 0, dx: 0, dy: 1 },
+      { c: Math.floor(COLS / 3), r: ROWS - 1, dx: 0, dy: -1 },
+    ];
+  }
+
   function restartGame(isRobotOn, spawnIndex) {
     spawnIndex = spawnIndex || 0;
-    var spawns = [
-      { c: 0, r: Math.floor(ROWS / 2), dx: 1, dy: 0 },
-      { c: COLS - 1, r: Math.floor(ROWS / 2), dx: -1, dy: 0 },
-      { c: Math.floor(COLS / 2), r: 0, dx: 0, dy: 1 },
-      { c: Math.floor(COLS / 2), r: ROWS - 1, dx: 0, dy: -1 },
-      { c: 0, r: 0, dx: 1, dy: 0 },
-      { c: COLS - 1, r: 0, dx: -1, dy: 0 },
-      { c: 0, r: ROWS - 1, dx: 1, dy: 0 },
-      { c: COLS - 1, r: ROWS - 1, dx: -1, dy: 0 },
-    ];
+    var spawns = getSpawns();
     var sp = spawns[spawnIndex % spawns.length];
 
     initAIColors();
@@ -256,6 +276,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
     });
 
+    player.territoryVersion = (player.territoryVersion || 1) + 1;
+
     if (player === user && broadcastUpdateCb) {
       broadcastUpdateCb();
     }
@@ -273,6 +295,38 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
   function checkEliminations(isSharedMode) {
     if (!isGameActive) return;
+
+    var winThreshold = (COLS * ROWS) / 2;
+    var oppList = [];
+    if (isSharedMode) {
+      var keys = Object.keys(opponents);
+      for (var i = 0; i < keys.length; i++) {
+        if (!opponents[keys[i]].isDead) oppList.push(opponents[keys[i]]);
+      }
+    } else if (ai && !ai.isDead) {
+      oppList.push(ai);
+    }
+
+    if (user && !user.isDead && user.territory.size > winThreshold) {
+      for (var i = 0; i < oppList.length; i++) oppList[i].isDead = true;
+    } else if (
+      !isSharedMode &&
+      ai &&
+      !ai.isDead &&
+      ai.territory.size > winThreshold
+    ) {
+      if (user) user.isDead = true;
+    } else if (isSharedMode) {
+      for (var i = 0; i < oppList.length; i++) {
+        if (oppList[i].territory.size > winThreshold) {
+          if (user) user.isDead = true;
+          for (var j = 0; j < oppList.length; j++) {
+            if (i !== j) oppList[j].isDead = true;
+          }
+          break;
+        }
+      }
+    }
 
     var checkCollision = function (p, oppList) {
       var state = { pDead: false, oppDead: false };
@@ -319,16 +373,6 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
       return state;
     };
-
-    var oppList = [];
-    if (isSharedMode) {
-      var keys = Object.keys(opponents);
-      for (var i = 0; i < keys.length; i++) {
-        if (!opponents[keys[i]].isDead) oppList.push(opponents[keys[i]]);
-      }
-    } else if (ai && !ai.isDead) {
-      oppList.push(ai);
-    }
 
     if (user && !user.isDead) {
       var userStatus = checkCollision(user, oppList);
@@ -610,15 +654,21 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     }
   }
 
-  function updatePlayer(p) {
+  function updatePlayer(p, delta) {
     if (p.isDead) return;
 
-    // Calculate next position
-    var newCol = p.col + p.dir.x * speed;
-    var newRow = p.row + p.dir.y * speed;
+    // Calculate time scaled speed, cap delta at 50ms to prevent jumps during lag
+    var safeDelta =
+      delta !== undefined && delta > 0 ? Math.min(delta, 50) : 16.666;
+    var timeScale = safeDelta / 16.666;
+    var currentSpeed = speed * timeScale;
 
-    // Don't allow movement outside the grid (added small margin to prevent floating point deaths)
-    var margin = speed * 0.5;
+    // Calculate next position
+    var newCol = p.col + p.dir.x * currentSpeed;
+    var newRow = p.row + p.dir.y * currentSpeed;
+
+    // Don't allow movement outside the grid (added small margin to prevent floating point eliminations)
+    var margin = currentSpeed * 0.5;
     if (newCol < -margin) {
       newCol = 0;
       p.hitWall = true;
@@ -644,7 +694,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     var rInt = Math.round(p.row);
     var dist = Math.abs(p.col - cInt) + Math.abs(p.row - rInt);
 
-    if (dist < speed * 0.75) {
+    if (dist < currentSpeed * 0.75) {
       p.col = cInt;
       p.row = rInt;
 
@@ -677,10 +727,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     }
   }
 
-  function updateGame() {
+  function updateGame(delta) {
     if (!isGameActive) return;
-    updatePlayer(user);
-
+    updatePlayer(user, delta);
     var isSharedMode =
       Object.keys(opponents).length > 0 ||
       (broadcastUpdateCb &&
@@ -688,13 +737,13 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
     if (!isSharedMode && ai) {
       updateAI();
-      updatePlayer(ai);
+      updatePlayer(ai, delta);
     } else if (isSharedMode) {
       var keys = Object.keys(opponents);
       for (var i = 0; i < keys.length; i++) {
         var opp = opponents[keys[i]];
         if (!opp.isDead) {
-          updatePlayer(opp);
+          updatePlayer(opp, delta);
         }
       }
     }
@@ -704,7 +753,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     // Broadcast after eliminations
     if (isSharedMode) {
       var now = Date.now();
-      if (now - lastBroadcastTime > 100) {
+      if (now - lastBroadcastTime > 80) {
         if (broadcastUpdateCb && (!user || !user.isDead)) broadcastUpdateCb();
         lastBroadcastTime = now;
       }
@@ -725,12 +774,19 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   }
 
   var GameMode = {
+    setSpeed: function (val) {
+      speed = val;
+    },
+    getSpeed: function () {
+      return speed;
+    },
     init: function (
       dotsArray,
       broadcastCallback,
       activitySpacing,
       onOpponentCountChanged,
     ) {
+      sharedTotalPlayers = 1;
       dots = dotsArray || [];
       if (activitySpacing !== undefined) {
         spacing = activitySpacing;
@@ -751,6 +807,12 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         ROWS = maxRow + 1;
       }
       restartGame();
+    },
+    getStats: function () {
+      return getStats();
+    },
+    setTotalPlayers: function (count) {
+      sharedTotalPlayers = count;
     },
     activate: function () {
       restartGame();
@@ -794,7 +856,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       isMouseDown = false;
     },
 
-    drawBehindDots: function (ctx) {
+    drawBehindDots: function (ctx, delta) {
       if (!ctx) return;
 
       if (dots.length > 0 && offsetX === 0) {
@@ -803,7 +865,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
 
       // Update logic
-      updateGame();
+      updateGame(delta);
 
       // Draw percentage bar
       if (user) {
@@ -850,6 +912,38 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           var r = parseInt(parts[1]);
           drawRect(ctx, c, r, player.fillColor, 0);
         });
+
+
+        // Draw outer border
+        ctx.beginPath();
+        ctx.strokeStyle = player.strokeColor;
+        ctx.lineWidth = 6;
+        ctx.lineCap = "square";
+        var hs = spacing / 2;
+        player.territory.forEach(function (key) {
+          var parts = key.split("_");
+          var c = parseInt(parts[0]);
+          var r = parseInt(parts[1]);
+          var b = getBaseCoords(c, r);
+
+          if (!player.territory.has(c + "_" + (r - 1))) {
+            ctx.moveTo(b.x - hs, b.y - hs);
+            ctx.lineTo(b.x + hs, b.y - hs);
+          }
+          if (!player.territory.has(c + "_" + (r + 1))) {
+            ctx.moveTo(b.x - hs, b.y + hs);
+            ctx.lineTo(b.x + hs, b.y + hs);
+          }
+          if (!player.territory.has(c - 1 + "_" + r)) {
+            ctx.moveTo(b.x - hs, b.y - hs);
+            ctx.lineTo(b.x - hs, b.y + hs);
+          }
+          if (!player.territory.has(c + 1 + "_" + r)) {
+            ctx.moveTo(b.x + hs, b.y - hs);
+            ctx.lineTo(b.x + hs, b.y + hs);
+          }
+        });
+        ctx.stroke();
       };
       if (user) drawTerritory(user);
       if (ai) drawTerritory(ai);
@@ -860,10 +954,6 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       var drawTrail = function (player) {
         if (!player || player.isDead || player.trail.length === 0) return;
         ctx.beginPath();
-        ctx.strokeStyle = player.strokeColor;
-        ctx.lineWidth = 15;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
 
         var start = player.lastSafe
           ? getBaseCoords(player.lastSafe.c, player.lastSafe.r)
@@ -875,6 +965,17 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         }
         var head = getBaseCoords(player.col, player.row);
         ctx.lineTo(head.x, head.y);
+
+        // Draw white outline
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 19;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+
+        // Draw colored inner trail
+        ctx.strokeStyle = player.strokeColor;
+        ctx.lineWidth = 15;
         ctx.stroke();
       };
       if (user) drawTrail(user);
@@ -892,6 +993,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2);
         ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
       };
       if (user) drawHead(user);
       if (ai) drawHead(ai);
@@ -960,6 +1064,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         fillColor: user.fillColor,
         trail: user.trail,
         territory: Array.from(user.territory),
+        territoryVersion: user.territoryVersion,
         isDead: user.isDead,
         lastSafe: user.lastSafe,
       };
@@ -1005,6 +1110,52 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         opp.nextDir = data.nextDir;
         var dist = Math.abs(opp.col - data.col) + Math.abs(opp.row - data.row);
         var trailCleared = opp.trail.length > 0 && data.trail.length === 0;
+
+        var currentVersion = opp.territoryVersion || 1;
+        var newVersion = data.territoryVersion || 1;
+
+        // Keep track of which dots actually belong to them
+        var resolvedTerritory = new Set();
+
+        if (data.territory) {
+          var isNewCapture = newVersion > currentVersion;
+          for (var i = 0; i < data.territory.length; i++) {
+            var key = data.territory[i];
+
+            if (isNewCapture) {
+              // The opponent just successfully captured this dot, so we must remove it from our territory and let them have it.
+              if (user && user.territory.has(key)) user.territory.delete(key);
+              if (ai && ai.territory.has(key)) ai.territory.delete(key);
+              var keys = Object.keys(opponents);
+              for (var j = 0; j < keys.length; j++) {
+                var otherOpp = opponents[keys[j]];
+                if (otherOpp !== opp && otherOpp.territory.has(key)) {
+                  otherOpp.territory.delete(key);
+                }
+              }
+              resolvedTerritory.add(key);
+            } else {
+              // If this is an old network message and we already own this dot
+              // We should ignore their old message.
+              var weStoleIt = user && user.territory.has(key);
+              var aiStoleIt = ai && ai.territory.has(key);
+              var anotherOppStoleIt = false;
+              var keys = Object.keys(opponents);
+              for (var j = 0; j < keys.length; j++) {
+                var otherOpp = opponents[keys[j]];
+                if (otherOpp !== opp && otherOpp.territory.has(key)) {
+                  anotherOppStoleIt = true;
+                }
+              }
+
+              if (!weStoleIt && !aiStoleIt && !anotherOppStoleIt) {
+                resolvedTerritory.add(key);
+              }
+            }
+          }
+          opp.territoryVersion = newVersion;
+        }
+
         if (
           dist > 0.5 ||
           trailCleared ||
@@ -1016,10 +1167,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           opp.row = data.row;
           opp.dir = data.dir;
           opp.trail = data.trail;
-          opp.territory = new Set(data.territory);
+          opp.territory = resolvedTerritory;
           opp.lastSafe = data.lastSafe;
         } else {
-          opp.territory = new Set(data.territory); // Keep territory in sync
+          opp.territory = resolvedTerritory; // Keep territory in sync
         }
       }
     },
@@ -1028,16 +1179,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     },
     previewGame: function (isRobotOn, spawnIndex, keepOpponents) {
       spawnIndex = spawnIndex || 0;
-      var spawns = [
-        { c: 0, r: Math.floor(ROWS / 2), dx: 1, dy: 0 },
-        { c: COLS - 1, r: Math.floor(ROWS / 2), dx: -1, dy: 0 },
-        { c: Math.floor(COLS / 2), r: 0, dx: 0, dy: 1 },
-        { c: Math.floor(COLS / 2), r: ROWS - 1, dx: 0, dy: -1 },
-        { c: 0, r: 0, dx: 1, dy: 0 },
-        { c: COLS - 1, r: 0, dx: -1, dy: 0 },
-        { c: 0, r: ROWS - 1, dx: 1, dy: 0 },
-        { c: COLS - 1, r: ROWS - 1, dx: -1, dy: 0 },
-      ];
+      var spawns = getSpawns();
       var sp = spawns[spawnIndex % spawns.length];
 
       initAIColors();
