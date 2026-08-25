@@ -141,5 +141,6 @@
   "TotalTime": "Total Time",
   "TotalScore": "Total Score",
   "SeeLeaderboard": "See Leaderboard",
-  "RestartChallenge": "Restart Challenge"
+	"RestartChallenge": "Restart Challenge",
+	"ImageSavedToJournal": "Image saved to journal!"
 }

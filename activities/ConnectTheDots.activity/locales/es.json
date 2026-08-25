@@ -5,8 +5,8 @@
   "Unfullscreen": "Salir de pantalla completa",
   "Stop": "Detener",
   "Tutorial": "Tutorial",
-  "TutoPrev": "Atrás",
-  "TutoNext": "Siguiente",
+  "TutoPrev": "Ant",
+	"TutoNext": "Sig",
   "TutoExplainTitle": "Actividad ConnectTheDots",
   "TutoExplainContent": "Bienvenido a la actividad ConnectTheDots. ConnectTheDots es una actividad divertida donde puedes dibujar líneas entre puntos, conectar puntos numerados en orden, o jugar un juego de territorio multijugador",
   "TutoNetworkTitle": "Red",
@@ -141,5 +141,6 @@
   "TotalTime": "Tiempo Total",
   "TotalScore": "Puntaje Total",
   "SeeLeaderboard": "Ver Clasificación",
-  "RestartChallenge": "Reiniciar Reto"
+	"RestartChallenge": "Reiniciar Reto",
+	"ImageSavedToJournal": "¡La imagen se guardó en el diario!"
 }

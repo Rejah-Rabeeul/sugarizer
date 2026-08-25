@@ -1,4 +1,4 @@
-define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon", "activity/modes/game-mode", "activity/palettes/speedPalette"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon, gameMode, speedPalette) {
+define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graphics/presencepalette", "sugar-web/datastore", "tutorial", "activity/palettes/color-palette", "activity/modes/draw-mode", "sugar-web/graphics/menupalette", "activity/modes/number-mode", "activity/palettes/timerPalette", "sugar-web/graphics/icon", "activity/modes/game-mode", "activity/palettes/speedPalette", "humane"], function (activity, env, l10n, presencepalette, datastore, tutorial, colorpalette, drawMode, menupalette, numberMode, timerPalette, icon, gameMode, speedPalette, humane) {
 	requirejs(['domReady!'], function (doc) {
 
 		activity.setup();
@@ -684,6 +684,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('robot-button').style.display = 'none';
 				document.getElementById('speed-button').style.display = 'none';
 				document.getElementById('play-button').style.display = 'none';
+				document.getElementById('save-image-button').style.display = 'none';
 				
 				if (typeof newMode.activate === 'function') newMode.activate();
 			
@@ -696,6 +697,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('erase-button').style.display = 'none';
 				document.getElementById('clear-button').style.display = 'none';
 				document.getElementById('restart-button').style.display = 'none';
+				document.getElementById('save-image-button').style.display = 'none';
 				var rb = document.getElementById('robot-button');
 				rb.style.display = 'none';
 				document.getElementById('speed-button').style.display = (((currentenv && currentenv.sharedId) || presence) && !isHost) ? 'none' : '';
@@ -739,6 +741,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				document.getElementById('robot-button').style.display = 'none';
 				document.getElementById('speed-button').style.display = 'none';
 				document.getElementById('play-button').style.display = 'none';
+				document.getElementById('save-image-button').style.display = '';
 				
 				if (numberMode && typeof numberMode.deactivate === 'function') numberMode.deactivate();
 				
@@ -919,6 +922,23 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				});
 			}
 			broadcastUpdate();
+		});
+
+		// Handle Add to Journal
+		document.getElementById("save-image-button").addEventListener('click', function () {
+			var mimetype = 'image/png';
+			var inputData = canvas.toDataURL(mimetype, 1);
+			var metadata = {
+				mimetype: mimetype,
+				title: "ConnectTheDots",
+				activity: "org.olpcfrance.MediaViewerActivity",
+				timestamp: new Date().getTime(),
+				creation_time: new Date().getTime(),
+				file_size: 0
+			};
+			datastore.create(metadata, function () {
+				humane.log(l10n.get("ImageSavedToJournal"));
+			}, inputData);
 		});
 
 		var isRobotOn = false;

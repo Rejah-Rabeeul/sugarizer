@@ -5,8 +5,8 @@
   "Unfullscreen": "Quitter plein écran",
   "Stop": "Arrêter",
   "Tutorial": "Tutoriel",
-  "TutoPrev": "Précédent",
-  "TutoNext": "Suivant",
+	"TutoPrev": "Préc",
+	"TutoNext": "Suiv",
   "TutoExplainTitle": "Activité ConnectTheDots",
   "TutoExplainContent": "Bienvenue dans l'activité ConnectTheDots. ConnectTheDots est une activité amusante où vous pouvez dessiner des lignes entre les points, connecter des points numérotés dans l'ordre, ou jouer à un jeu de territoire multijoueur",
   "TutoNetworkTitle": "Réseau",
@@ -141,5 +141,6 @@
   "TotalTime": "Temps Total",
   "TotalScore": "Score Total",
   "SeeLeaderboard": "Voir Classement",
-  "RestartChallenge": "Recommencer"
+	"RestartChallenge": "Recommencer",
+	"ImageSavedToJournal": "L'image a été enregistrée dans le journal !"
 }
