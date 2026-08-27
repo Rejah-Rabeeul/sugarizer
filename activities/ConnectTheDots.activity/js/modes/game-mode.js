@@ -15,6 +15,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   var sharedTotalPlayers = 1;
   var broadcastUpdateCb = null;
   var lastBroadcastTime = 0;
+  var localPlayerName = null;
+  var onNotificationCb = null;
 
   var isGameActive = false;
   var speed = 0.05; // Grid units per frame (speed)
@@ -39,17 +41,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           validPairs.push(xocolor.colors[i]);
         }
       }
-      if (validPairs.length > 0) {
-        var rnd = validPairs[Math.floor(Math.random() * validPairs.length)];
-        aiStrokeColor = rnd.stroke;
-        aiFillColor = rnd.fill;
-      } else {
-        aiStrokeColor = "#ff2b34";
-        aiFillColor = "#990000";
-      }
-    } else {
-      aiStrokeColor = "#ff2b34";
-      aiFillColor = "#990000";
+      var rnd = validPairs[Math.floor(Math.random() * validPairs.length)];
+      aiStrokeColor = rnd.stroke;
+      aiFillColor = rnd.fill;
     }
   }
 
@@ -86,13 +80,17 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     headColor,
     dirX,
     dirY,
+    name,
+    networkId,
   ) {
     var territory = new Set();
     if (startCol >= 0 && startCol < COLS && startRow >= 0 && startRow < ROWS) {
       territory.add(startCol + "_" + startRow);
     }
     return {
+      networkId: networkId,
       isAi: isAi,
+      name: name || (isAi ? "Robot" : "Player"),
       col: startCol,
       row: startRow,
       dir: { x: dirX, y: dirY },
@@ -150,6 +148,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       buddyStrokeColor,
       sp.dx,
       sp.dy,
+      localPlayerName || "Player",
+      "local",
     );
     if (isRobotOn) {
       var aiSp = spawns[1];
@@ -162,6 +162,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         aiStrokeColor,
         aiSp.dx,
         aiSp.dy,
+        "Robot",
+        "ai",
       );
     } else {
       ai = null;
@@ -296,6 +298,34 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
   function checkEliminations(isSharedMode) {
     if (!isGameActive) return;
 
+    var notifyEvent = function (event, subject, object) {
+      if (!onNotificationCb) return;
+      // check if names are present
+      var subjectName = subject ? subject.name || "Player" : "Player";
+      var objectName = object ? object.name || "Player" : "";
+      var subjectColor = subject
+        ? subject.strokeColor
+          ? { stroke: subject.strokeColor, fill: subject.fillColor }
+          : null
+        : null;
+
+      var isSubLocal = subject === user;
+      var isObjLocal = object === user;
+      var subjectId = subject ? subject.networkId : null;
+      var objectId = object ? object.networkId : null;
+
+      onNotificationCb(
+        event,
+        subjectName,
+        subjectColor,
+        objectName,
+        isSubLocal,
+        isObjLocal,
+        subjectId,
+        objectId,
+      );
+    };
+
     var winThreshold = (COLS * ROWS) / 2;
     var oppList = [];
     if (isSharedMode) {
@@ -308,6 +338,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     }
 
     if (user && !user.isDead && user.territory.size > winThreshold) {
+      if (!user.winNotified && onNotificationCb) {
+        user.winNotified = true;
+        notifyEvent("win", user);
+      }
       for (var i = 0; i < oppList.length; i++) oppList[i].isDead = true;
     } else if (
       !isSharedMode &&
@@ -315,6 +349,10 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       !ai.isDead &&
       ai.territory.size > winThreshold
     ) {
+      if (!ai.winNotified && onNotificationCb) {
+        ai.winNotified = true;
+        notifyEvent("win", ai);
+      }
       if (user) user.isDead = true;
     } else if (isSharedMode) {
       for (var i = 0; i < oppList.length; i++) {
@@ -333,6 +371,14 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
       // To check p Hit wall
       if (p.hitWall) {
+        if (
+          !p.hitWallNotified &&
+          (p === user || (!isSharedMode && p === ai)) &&
+          onNotificationCb
+        ) {
+          p.hitWallNotified = true;
+          notifyEvent("hitWall", p);
+        }
         state.pDead = true;
         return state;
       }
@@ -358,7 +404,11 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
               if (opp.trail[i].c === headC && opp.trail[i].r === headR) {
                 state.oppDead = true; // Opponent's trail was hit, opponent eliminates
                 if (!state.deadOpponents) state.deadOpponents = [];
-                state.deadOpponents.push(opp);
+                if (!opp.deadLogged) {
+                  opp.deadLogged = true;
+                  state.deadOpponents.push(opp);
+                  notifyEvent("eliminated", p, opp);
+                }
               }
             }
           }
@@ -368,6 +418,14 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           // exclude head
           if (p.trail[i].c === headC && p.trail[i].r === headR) {
             state.pDead = true; // Hit own trail, p eliminates
+            if (
+              !p.selfHitNotified &&
+              (p === user || (!isSharedMode && p === ai)) &&
+              onNotificationCb
+            ) {
+              p.selfHitNotified = true;
+              notifyEvent("intercepted", p);
+            }
           }
         }
       }
@@ -380,9 +438,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       if (userStatus.oppDead && userStatus.deadOpponents) {
         for (var i = 0; i < userStatus.deadOpponents.length; i++) {
           var deadOpp = userStatus.deadOpponents[i];
-          deadOpp.isDead = true;
-          deadOpp.territory.clear();
-          deadOpp.trail = [];
+          killPlayer(deadOpp);
         }
       }
     }
@@ -400,9 +456,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           user.isDead = true;
         }
         if (oppStatus.pDead) {
-          opp.isDead = true;
-          opp.territory.clear();
-          opp.trail = [];
+          killPlayer(opp);
         }
       }
     }
@@ -412,27 +466,26 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       for (var i = 0; i < oppList.length; i++) {
         var opp = oppList[i];
         if (opp.isDead) continue;
+				// Check actual pixels for accurate collision
         if (
-          Math.abs(user.col - opp.col) < 0.5 &&
-          Math.abs(user.row - opp.row) < 0.5
+          Math.abs(user.x - opp.x) < spacing * 0.8 &&
+          Math.abs(user.y - opp.y) < spacing * 0.8
         ) {
-          if (user.trail.length > 0 && opp.trail.length === 0)
+          if (user.trail.length > 0 && opp.trail.length === 0) {
             user.isDead = true;
-          else if (opp.trail.length > 0 && user.trail.length === 0) {
-            opp.isDead = true;
-            opp.territory.clear();
-            opp.trail = [];
-          } else if (user.territory.size < opp.territory.size)
+            notifyEvent("eliminated", opp, user);
+          } else if (opp.trail.length > 0 && user.trail.length === 0) {
+            killPlayer(opp);
+            notifyEvent("eliminated", user, opp);
+          } else if (user.territory.size < opp.territory.size) {
             user.isDead = true;
-          else if (user.territory.size > opp.territory.size) {
-            opp.isDead = true;
-            opp.territory.clear();
-            opp.trail = [];
+            notifyEvent("eliminated", opp, user);
+          } else if (user.territory.size > opp.territory.size) {
+            killPlayer(opp);
+            notifyEvent("eliminated", user, opp);
           } else {
-            user.isDead = true;
-            opp.isDead = true;
-            opp.territory.clear();
-            opp.trail = [];
+						// Multiplayer sync: resolve tie with opponent
+            notifyEvent("headToHeadClaim", user, opp);
           }
         }
       }
@@ -460,12 +513,33 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
       if ((oppKeys.length > 0 || (user && user.isDead)) && aliveCount === 1) {
         isGameActive = false;
+        var winner = user && !user.isDead ? user : null;
+        if (!winner) {
+          for (var i = 0; i < oppKeys.length; i++) {
+            if (!opponents[oppKeys[i]].isDead) {
+              winner = opponents[oppKeys[i]];
+              break;
+            }
+          }
+        }
+        if (winner) {
+          notifyEvent("gameWon", winner, null);
+        }
         if (user && !user.isDead) {
           triggerConfetti();
         }
       } else if (aliveCount === 0 && oppKeys.length > 0) {
         isGameActive = false;
       }
+    }
+  }
+
+  function killPlayer(player) {
+    player.isDead = true;
+    player.territory.clear();
+    player.trail = [];
+    if (typeof broadcastUpdateCb === "function") {
+      broadcastUpdateCb();
     }
   }
 
@@ -785,6 +859,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       broadcastCallback,
       activitySpacing,
       onOpponentCountChanged,
+      notificationCb,
     ) {
       sharedTotalPlayers = 1;
       dots = dotsArray || [];
@@ -793,6 +868,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
       broadcastUpdateCb = broadcastCallback;
       onOpponentCountChangedCb = onOpponentCountChanged;
+      onNotificationCb = notificationCb;
       if (dots.length > 0) {
         offsetX = dots[0].baseX;
         offsetY = dots[0].baseY;
@@ -1069,7 +1145,7 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         lastSafe: user.lastSafe,
       };
     },
-    deserialize: function (data, isInit, networkId) {
+    deserialize: function (data, isInit, networkId, oppName) {
       if (!networkId || !data) return;
       var isNewOpponent = false;
       if (!opponents[networkId]) {
@@ -1085,6 +1161,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           stroke,
           data.dir.x,
           data.dir.y,
+          oppName || "Player",
+          networkId,
         );
         if (onOpponentCountChangedCb)
           onOpponentCountChangedCb(Object.keys(opponents).length);
@@ -1092,15 +1170,14 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
 
       var opp = opponents[networkId];
+      if (oppName) opp.name = oppName;
       opp.strokeColor = data.strokeColor;
       opp.fillColor = data.fillColor;
       opp.headColor = data.strokeColor;
 
       var resurrected = false;
       if (data.isDead && !opp.isDead) {
-        opp.isDead = true;
-        opp.territory.clear();
-        opp.trail = [];
+        killPlayer(opp);
       } else if (!data.isDead && opp.isDead) {
         opp.isDead = false;
         resurrected = true;
@@ -1192,6 +1269,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         buddyStrokeColor,
         sp.dx,
         sp.dy,
+        localPlayerName || "Player",
+        "local",
       );
       if (isRobotOn) {
         var aiSp = spawns[1];
@@ -1204,6 +1283,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
           aiStrokeColor,
           aiSp.dx,
           aiSp.dy,
+          "Robot",
+          "ai",
         );
       } else {
         ai = null;
@@ -1232,6 +1313,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
             aiStrokeColor,
             -1,
             0,
+            "Robot",
+            "ai",
           );
       } else {
         ai = null;
@@ -1255,6 +1338,29 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         user.fillColor = buddyFillColor;
         user.headColor = buddyStrokeColor;
       }
+    },
+    setLocalPlayerName: function (name) {
+      localPlayerName = name;
+      if (user) user.name = name;
+    },
+    endGame: function () {
+      isGameActive = false;
+      triggerConfetti();
+    },
+    checkHeadToHeadAgreement: function (oppId) {
+      var opp = opponents[oppId];
+      if (user && opp && !user.isDead && !opp.isDead) {
+				// Verify local physical touch
+        if (
+          Math.abs(user.x - opp.x) < spacing * 1.5 &&
+          Math.abs(user.y - opp.y) < spacing * 1.5
+        ) {
+          user.isDead = true;
+          killPlayer(opp);
+          return true;
+        }
+      }
+      return false;
     },
   };
 

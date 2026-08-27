@@ -24,6 +24,52 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		var hasReceivedInit = false;
 		var mySharedSpawnIndex = 0;
 
+		var recentNotifications = {};
+		var formatAndLogNotification = function(event, subjectName, subjectColor, objectName) {
+			var getL10n = function(key, fallback) {
+				var val = l10n.get(key);
+				return (val && val !== key && val !== "") ? val : fallback;
+			};
+			var myName = currentenv ? currentenv.user.name : "Player";
+			var youStr = getL10n("You", "You");
+			var sName = (subjectName === myName) ? youStr : subjectName;
+			var msg = "";
+			
+			var oName = "";
+			if (objectName) {
+				oName = (objectName === myName) ? youStr : objectName;
+			}
+
+			if (event === 'hitWall') msg = sName + " " + getL10n("hitTheWall", "hit the wall");
+			else if (event === 'win') msg = sName + " " + getL10n("fillMoreThan50", "fill more than 50% of the board");
+			else if (event === 'eliminated') msg = sName + " " + getL10n("eliminated", "eliminated") + " " + oName;
+			else if (event === 'intercepted') msg = sName + " " + getL10n("hasBeenIntercepted", "has been intercepted");
+			else if (event === 'eliminatedEachOther') msg = sName + " and " + oName + " " + getL10n("eliminatedEachOther", "eliminated each other");
+			else if (event === 'gameWon') msg = sName + " " + getL10n("wonTheGame", "won the game");
+
+			var now = Date.now();
+			if (recentNotifications[msg] && now - recentNotifications[msg] < 1500) {
+				return;
+			}
+			recentNotifications[msg] = now;
+			
+			// cleanup old entries
+			for (var key in recentNotifications) {
+				if (now - recentNotifications[key] > 2000) {
+					delete recentNotifications[key];
+				}
+			}
+
+			icon.load({
+				uri: "icons/owner-icon.svg",
+				fillColor: subjectColor.fill,
+				strokeColor: subjectColor.stroke
+			}, function(url) {
+				var iconHtml = "<br><img style='height:30px;vertical-align:middle;margin-top:5px;' src='" + url + "'>";
+				humane.log(msg + iconHtml);
+			});
+		};
+
 		function getMySpawnIndex() {
 			if (!presence) return 0;
 			return mySharedSpawnIndex;
@@ -371,7 +417,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 							if (typeof gameMode.previewGame === 'function') {
 								gameMode.previewGame(false, mySharedSpawnIndex, true);
 							}
-							currentMode.deserialize(msg.content.data, true, msg.user.networkId);
+							currentMode.deserialize(msg.content.data, true, msg.user.networkId, msg.user.name);
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures);
 						}
@@ -389,7 +435,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 							currentMode.deserialize(msg.content.data);
 							if (typeof currentMode.updateLibraryMenu === 'function') currentMode.updateLibraryMenu();
 						} else if (currentMode === gameMode) {
-							currentMode.deserialize(msg.content.data, false, msg.user.networkId);
+							currentMode.deserialize(msg.content.data, false, msg.user.networkId, msg.user.name);
 						} else {
 							currentMode.deserialize(msg.content.data.strokes, msg.content.data.figures, true);
 						}
@@ -401,6 +447,45 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 							currentMode.clear(true);
 						} else {
 							currentMode.clear();
+						}
+					}
+					break;
+				case 'notification':
+					if (msg.content.event === 'headToHeadClaim') {
+						var myId = presence.getUserInfo().networkId;
+						if (msg.content.objectId === myId || msg.content.subjectId === myId) {
+							var oppId = (msg.content.objectId === myId) ? msg.content.subjectId : msg.content.objectId;
+							if (currentMode === gameMode && typeof gameMode.checkHeadToHeadAgreement === 'function') {
+								if (gameMode.checkHeadToHeadAgreement(oppId)) {
+									// Send the elimination notification
+									presence.sendMessage(presence.getSharedInfo().id, {
+										user: presence.getUserInfo(),
+										content: {
+											action: 'notification',
+											event: 'eliminatedEachOther',
+											subjectName: msg.content.subjectName,
+											subjectColor: msg.content.subjectColor,
+											objectName: msg.content.objectName,
+											subjectId: msg.content.subjectId,
+											objectId: msg.content.objectId
+										}
+									});
+								}
+							}
+						}
+					break;
+					}
+					formatAndLogNotification(msg.content.event, msg.content.subjectName, msg.content.subjectColor, msg.content.objectName);
+					if (msg.content.event === 'eliminated' || msg.content.event === 'eliminatedEachOther') {
+						var myId = presence.getUserInfo().networkId;
+						if (msg.content.objectId === myId || (msg.content.event === 'eliminatedEachOther' && msg.content.subjectId === myId)) {
+							if (currentMode === gameMode && typeof gameMode.killPlayer === 'function') {
+								gameMode.killPlayer();
+							}
+						}
+					} else if (msg.content.event === 'gameWon' || msg.content.event === 'win') {
+						if (currentMode === gameMode && typeof gameMode.endGame === 'function') {
+							gameMode.endGame();
 						}
 					}
 					break;
@@ -514,6 +599,11 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			currentenv = environment;
 			if (numberMode && typeof numberMode.setEnvironment === 'function') {
 				numberMode.setEnvironment(environment);
+			}
+			if (environment && environment.user && environment.user.name) {
+				if (gameMode && typeof gameMode.setLocalPlayerName === 'function') {
+					gameMode.setLocalPlayerName(environment.user.name);
+				}
 			}
 			if (environment && environment.user && environment.user.colorvalue) {
 				buddyStroke = environment.user.colorvalue.stroke || buddyStroke;
@@ -1088,7 +1178,24 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 				}
 			}
 		}
-		gameMode.init(dots, broadcastUpdate, spacing, onGameModeOpponentCountChanged);
+		gameMode.init(dots, broadcastUpdate, spacing, onGameModeOpponentCountChanged, function(event, subjectName, subjectColor, objectName, isSubLocal, isObjLocal, subjectId, objectId) {
+			formatAndLogNotification(event, subjectName, subjectColor, objectName);
+			if (presence) {
+				var myId = presence.getUserInfo().networkId;
+				presence.sendMessage(presence.getSharedInfo().id, {
+					user: presence.getUserInfo(),
+					content: {
+						action: 'notification',
+						event: event,
+						subjectName: subjectName,
+						subjectColor: subjectColor,
+						objectName: objectName,
+						subjectId: isSubLocal ? myId : subjectId,
+						objectId: isObjLocal ? myId : objectId
+					}
+				});
+			}
+		});
 		if (typeof numberMode.setBuddyColors === 'function') {
 			numberMode.setBuddyColors(buddyStroke, buddyFill);
 		}
