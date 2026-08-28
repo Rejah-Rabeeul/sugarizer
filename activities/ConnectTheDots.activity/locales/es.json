@@ -142,5 +142,12 @@
   "TotalScore": "Puntaje Total",
   "SeeLeaderboard": "Ver Clasificación",
 	"RestartChallenge": "Reiniciar Reto",
-	"ImageSavedToJournal": "¡La imagen se guardó en el diario!"
+	"ImageSavedToJournal": "¡La imagen se guardó en el diario!",
+	"You": "Tú",
+	"hitTheWall": "chocó contra la pared",
+	"fillMoreThan50": "llenó más del 50% del tablero",
+	"eliminated": "eliminó a",
+	"hasBeenIntercepted": "ha sido interceptado",
+	"eliminatedEachOther": "se eliminaron entre sí",
+	"wonTheGame": "ha ganado el juego!"
 }

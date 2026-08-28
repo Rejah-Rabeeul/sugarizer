@@ -142,5 +142,12 @@
   "TotalScore": "Total Score",
   "SeeLeaderboard": "See Leaderboard",
 	"RestartChallenge": "Restart Challenge",
-	"ImageSavedToJournal": "Image saved to journal!"
+	"ImageSavedToJournal": "Image saved to journal!",
+	"You": "You",
+	"hitTheWall": "hit the wall",
+	"fillMoreThan50": "fill more than 50% of the board",
+	"eliminated": "eliminated",
+	"hasBeenIntercepted": "has been intercepted",
+	"eliminatedEachOther": "eliminated each other",
+	"wonTheGame": "won the game!"
 }
