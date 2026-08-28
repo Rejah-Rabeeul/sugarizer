@@ -541,10 +541,13 @@ body {
 button#mode-draw,
 button#mode-number,
 button#mode-game,
+button[id^="robot-level-"],
 .palette .menu button#mode-draw.icon,
 .palette .menu button#mode-number.icon,
 .palette .menu button#mode-game.icon,
+.palette .menu button[id^="robot-level-"].icon,
 .palette .menu button[id^="lib-"].icon,
+.palette .menu li button[id^="robot-level-"],
 .palette .menu li button[id^="lib-"],
 .palette .menu li button[id$="-timer-button"] {
   all: unset !important;
@@ -564,21 +567,31 @@ button#mode-game,
 button#mode-draw:hover,
 button#mode-number:hover,
 button#mode-game:hover,
+button[id^="robot-level-"]:hover,
 button[id^="lib-"]:hover,
 .palette .menu button#mode-draw.icon:hover,
 .palette .menu button#mode-number.icon:hover,
 .palette .menu button#mode-game.icon:hover,
+.palette .menu button[id^="robot-level-"].icon:hover,
 .palette .menu button[id^="lib-"].icon:hover,
+.palette .menu li button[id^="robot-level-"]:hover,
 .palette .menu li button[id^="lib-"]:hover,
-.palette .menu li button[id$="-timer-button"]:hover {
+.palette .menu li button[id$="-timer-button"]:hover,
+.palette .menu li button.palette-item-selected[id^="robot-level-"] {
   background-color: #808080 !important;
+}
+
+.palette .menu li button.palette-item-selected[id^="robot-level-"] {
+  font-weight: bold !important;
 }
 
 button#mode-draw span,
 button#mode-number span,
 button#mode-game span,
 .palette .menu button#mode-number.icon span,
-.palette .menu button#mode-game.icon span {
+.palette .menu button#mode-game.icon span,
+.palette .menu button[id^="robot-level-"].icon span,
+.palette .menu li button[id^="robot-level-"] span {
   position: static !important;
   display: inline-block !important;
   width: 40px !important;

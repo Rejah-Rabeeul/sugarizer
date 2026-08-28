@@ -23,6 +23,8 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
 
   var isMouseDown = false;
 
+  var aiLevel = 1; // 1 (Easy), 2 (Medium), 3 (Hard)
+
   var buddyStrokeColor = "#005fe4";
   var buddyFillColor = "#003380";
   var aiStrokeColor = null;
@@ -635,7 +637,11 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     var inTerritory = ai.territory.has(cInt + "_" + rInt);
 
     // Only panic when trail is getting too long
-    var panic = ai.trail.length > 6;
+    var panicThreshold = 6;
+    if (aiLevel === 1) panicThreshold = 9;
+    if (aiLevel === 2) panicThreshold = 5;
+    if (aiLevel === 3) panicThreshold = 3;
+    var panic = ai.trail.length > panicThreshold;
 
     if (panic) {
       // BFS to find shortest path home
@@ -680,10 +686,15 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
       }
     }
 
+    var randomChance = 0.3;
+    if (aiLevel === 1) randomChance = 0.6;
+    if (aiLevel === 2) randomChance = 0.15;
+    if (aiLevel === 3) randomChance = 0.0; // No randomness in hard mode
+
     if (
       willHitWall ||
       !currentStillValid ||
-      Math.random() < 0.3 ||
+      Math.random() < randomChance ||
       inTerritory
     ) {
       var bestDir = null;
@@ -696,25 +707,63 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
         var score = 0;
 
         // To attack user trail
+        var attackScore = 1000;
+        if (aiLevel === 1) attackScore = 100;
+        if (aiLevel === 3) attackScore = 3000;
+
+        var minDistToTrail = Infinity;
         for (var j = 0; j < user.trail.length; j++) {
-          if (user.trail[j].c === nc && user.trail[j].r === nr) score += 1000;
+          var dist =
+            Math.abs(user.trail[j].c - nc) + Math.abs(user.trail[j].r - nr);
+          if (dist === 0) score += attackScore;
+          if (dist < minDistToTrail) minDistToTrail = dist;
+        }
+
+        // Actively pursue trail if nearby
+        if (aiLevel >= 2 && user.trail.length > 0) {
+          if (minDistToTrail === 1) score += aiLevel === 3 ? 2000 : 400;
+          else if (minDistToTrail === 2) score += aiLevel === 3 ? 1000 : 200;
+          else if (aiLevel === 3 && minDistToTrail < 15)
+            score += (20 - minDistToTrail) * 100;
+          else if (aiLevel === 2 && minDistToTrail < 6)
+            score += (10 - minDistToTrail) * 15;
+        }
+
+        if (aiLevel >= 2 && user.trail.length > 0) {
+          var distToHead =
+            Math.abs(Math.round(user.col) - nc) +
+            Math.abs(Math.round(user.row) - nr);
+          if (aiLevel === 3 && distToHead < 10) {
+            score += (15 - distToHead) * 80;
+          } else if (aiLevel === 2 && distToHead < 6) {
+            score += (10 - distToHead) * 25;
+          }
         }
 
         // To capture user territory
-        if (user.territory.has(nc + "_" + nr)) score += 50;
+        if (user.territory.has(nc + "_" + nr))
+          score += aiLevel === 1 ? 10 : aiLevel === 3 ? 100 : 50;
 
         // Prefer unclaimed squares
         if (!ai.territory.has(nc + "_" + nr)) score += 20;
 
+        // Prefer moving towards the center of the board
+        if (aiLevel >= 2) {
+          var centerDist = Math.abs(COLS / 2 - nc) + Math.abs(ROWS / 2 - nr);
+          score += (15 - centerDist) * (aiLevel === 3 ? 15 : 10);
+        }
+
         // Prefer to keep moving in the same direction
-        if (d.x === ai.dir.x && d.y === ai.dir.y) score += 10;
+        if (d.x === ai.dir.x && d.y === ai.dir.y)
+          score += aiLevel === 1 ? 5 : 10;
 
         // penalize moves toward grid edges
-        if (nc <= 0 || nc >= COLS - 1) score -= 15;
-        if (nr <= 0 || nr >= ROWS - 1) score -= 15;
+        var edgePenalty = aiLevel === 1 ? 5 : aiLevel === 3 ? 25 : 15;
+        if (nc <= 0 || nc >= COLS - 1) score -= edgePenalty;
+        if (nr <= 0 || nr >= ROWS - 1) score -= edgePenalty;
 
         // To add randomness for variety
-        score += Math.random() * 15;
+        score += Math.random() * (aiLevel === 1 ? 50 : aiLevel === 3 ? 5 : 15);
 
         if (score > bestScore) {
           bestScore = score;
@@ -853,6 +902,9 @@ define(["sugar-web/graphics/xocolor"], function (xocolor) {
     },
     getSpeed: function () {
       return speed;
+    },
+    setAiLevel: function (level) {
+      aiLevel = level;
     },
     init: function (
       dotsArray,

@@ -507,6 +507,7 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						gameMode.restart(false, getMySpawnIndex());
 					}
 					break;
+				case 'stop-shared-game':
 				case 'timer-selected':
 				case 'finish-challenge':
 				case 'figure-completed':
@@ -1031,27 +1032,72 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			}, inputData);
 		});
 
-		var isRobotOn = false;
+		var isRobotOn = true;
 		var isGameStarted = false;
 		var robotButton = document.getElementById('robot-button');
 		var playButton = document.getElementById('play-button');
 
-		robotButton.addEventListener('click', function () {
-			if (isGameStarted) return;
-			isRobotOn = !isRobotOn;
-			robotButton.style.backgroundImage = "url('icons/" + (isRobotOn ? "robot-on" : "robot-off") + ".svg')";
-			
-			var canPlay = isRobotOn; // Future: check for network players
-			if (canPlay) {
-				playButton.disabled = false;
-				playButton.style.opacity = 1;
-			} else {
-				playButton.disabled = true;
-				playButton.style.opacity = 0.5;
+		var robotMenuData = [
+			{ icon: false, id: "robot-level-1", label: l10n.get("Level1") || "Level 1" },
+			{ icon: false, id: "robot-level-2", label: l10n.get("Level2") || "Level 2" },
+			{ icon: false, id: "robot-level-3", label: l10n.get("Level3") || "Level 3" }
+		];
+		var robotPalette = new menupalette.MenuPalette(robotButton, undefined, robotMenuData);
+		var robotInvoker = robotPalette.getPalette().querySelector('.palette-invoker');
+		
+		// Set initial selected item
+		var buttons = robotPalette.getPalette().querySelectorAll('button');
+		for (var i = 0; i < buttons.length; i++) {
+			if (buttons[i].id === 'robot-level-1') {
+				buttons[i].classList.add('palette-item-selected');
 			}
-			if (currentMode === gameMode) {
-				if (typeof gameMode.previewGame === 'function') {
-					gameMode.previewGame(presence ? false : isRobotOn, getMySpawnIndex());
+		}
+
+		robotPalette.addEventListener('selectItem', function (e) {
+			if (isGameStarted) return;
+			var targetButton = e.detail.target;
+			while (targetButton && targetButton.tagName !== 'BUTTON' && targetButton.parentElement) {
+				targetButton = targetButton.parentElement;
+			}
+			var selectedId = targetButton ? targetButton.id : '';
+			
+			if (selectedId) {
+				var buttons = robotPalette.getPalette().querySelectorAll('button');
+				for (var i = 0; i < buttons.length; i++) {
+					if (buttons[i].id === selectedId) {
+						buttons[i].classList.add('palette-item-selected');
+					} else {
+						buttons[i].classList.remove('palette-item-selected');
+					}
+				}
+
+				isRobotOn = true;
+				var level = 1;
+				if (selectedId === 'robot-level-1') level = 1;
+				if (selectedId === 'robot-level-2') level = 2;
+				if (selectedId === 'robot-level-3') level = 3;
+				
+				if (gameMode && typeof gameMode.setAiLevel === 'function') {
+					gameMode.setAiLevel(level);
+				}
+
+				robotButton.style.backgroundImage = "url('icons/robot-on.svg')";
+				if (robotInvoker) {
+					robotInvoker.style.backgroundImage = "url('icons/robot-on.svg')";
+				}
+
+				var canPlay = isRobotOn;
+				if (canPlay) {
+					playButton.disabled = false;
+					playButton.style.opacity = 1;
+				} else {
+					playButton.disabled = true;
+					playButton.style.opacity = 0.5;
+				}
+				if (currentMode === gameMode) {
+					if (typeof gameMode.previewGame === 'function') {
+						gameMode.previewGame(presence ? false : isRobotOn, getMySpawnIndex());
+					}
 				}
 			}
 		});
@@ -1194,6 +1240,25 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 						objectId: isObjLocal ? myId : objectId
 					}
 				});
+			}
+
+			// Handle single-player game over
+			if (!presence && (event === 'win' || event === 'gameWon' || event === 'eliminated' || event === 'hitWall' || event === 'intercepted')) {
+				isGameStarted = false;
+				if (robotButton) {
+					robotButton.disabled = false;
+					robotButton.style.opacity = 1;
+				}
+				var pb = document.getElementById('play-button');
+				var rb = document.getElementById('restart-button');
+				if (pb) {
+					pb.style.display = 'none';
+				}
+				if (rb) {
+					rb.style.display = '';
+					rb.disabled = false;
+					rb.style.opacity = 1;
+				}
 			}
 		});
 		if (typeof numberMode.setBuddyColors === 'function') {
