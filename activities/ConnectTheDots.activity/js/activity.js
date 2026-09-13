@@ -1202,6 +1202,8 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 			document.getElementById("erase-button").title = l10n.get("Erase") || "Erase";
 			document.getElementById("clear-button").title = l10n.get("Clear");
 			document.getElementById("restart-button").title = l10n.get("Restart") || "Restart";
+			document.getElementById("speed-button").title = l10n.get("GameSpeed") || "Game Speed";
+			document.getElementById("stop-game-button").title = l10n.get("StopGame") || "Stop Game";
 		});
 
 		// Initialize Shared Grid and Modes
