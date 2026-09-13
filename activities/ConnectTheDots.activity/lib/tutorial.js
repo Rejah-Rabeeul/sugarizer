@@ -75,6 +75,12 @@ define(["l10n"], function (l10n) {
           title: l10n.get("TutoClearButtonTitle"),
           intro: l10n.get("TutoClearButtonContent"),
         },
+				{
+					element: "#save-image-button",
+					position: "bottom",
+					title: l10n.get("TutoSaveImageButtonTitle"),
+					intro: l10n.get("TutoSaveImageButtonContent")
+				}
       ];
     } else if (isGameMode) {
       // Game Mode tutorial
@@ -82,6 +88,16 @@ define(["l10n"], function (l10n) {
         {
           title: l10n.get("TutoExplainTitle"),
           intro: l10n.get("TutoExplainContent"),
+        },
+        {
+          title: l10n.get("TutoGameModeTitle"),
+          intro: l10n.get("TutoGameModeContent"),
+        },
+        {
+					element: "#gridCanvas",
+          position: "top",
+          title: l10n.get("TutoGameCanvasTitle"),
+          intro: l10n.get("TutoGameCanvasContent"),
         },
         {
           element: "#network-button",
@@ -94,6 +110,36 @@ define(["l10n"], function (l10n) {
           position: "bottom",
           title: l10n.get("TutoModeButtonTitle"),
           intro: l10n.get("TutoModeButtonContent"),
+        },
+        {
+          element: "#play-button",
+          position: "bottom",
+          title: l10n.get("TutoPlayButtonTitle"),
+          intro: l10n.get("TutoPlayButtonContent"),
+        },
+        {
+          element: "#robot-button",
+          position: "bottom",
+          title: l10n.get("TutoRobotButtonTitle"),
+          intro: l10n.get("TutoRobotButtonContent"),
+        },
+        {
+          element: "#speed-button",
+          position: "bottom",
+          title: l10n.get("TutoSpeedButtonTitle"),
+          intro: l10n.get("TutoSpeedButtonContent"),
+        },
+        {
+          element: "#restart-button",
+          position: "bottom",
+          title: l10n.get("TutoRestartButtonTitle"),
+          intro: l10n.get("TutoRestartButtonContent"),
+        },
+        {
+          element: "#stop-game-button",
+          position: "bottom",
+          title: l10n.get("TutoStopGameButtonTitle"),
+          intro: l10n.get("TutoStopGameButtonContent"),
         },
       ];
     } else if (isCreatingFigure) {
