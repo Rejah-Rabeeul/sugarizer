@@ -1018,7 +1018,21 @@ define(["sugar-web/activity/activity", "sugar-web/env", "l10n", "sugar-web/graph
 		// Handle Add to Journal
 		document.getElementById("save-image-button").addEventListener('click', function () {
 			var mimetype = 'image/png';
+
+			// Render without dots
+			if (currentMode === drawMode) {
+				ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+				if (typeof currentMode.drawBehindDots === 'function') {
+					currentMode.drawBehindDots(ctx);
+				}
+			}
+
 			var inputData = canvas.toDataURL(mimetype, 1);
+
+			if (currentMode === drawMode) {
+				ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+			}
+
 			var metadata = {
 				mimetype: mimetype,
 				title: "ConnectTheDots",
